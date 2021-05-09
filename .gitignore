@@ -1,0 +1,9 @@
+*.mdv
+*.mdr
+*.hex
+*.xcf
+*.sublime*
+_build
+scratchpad
+.cache
+cartridges
