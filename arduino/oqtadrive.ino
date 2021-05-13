@@ -368,7 +368,7 @@ void endHeaderGap() {
 /*
 	Tracks in RECORD mode means the Arduino reads incoming data. I.e. when the
 	Interface 1/QL wants to write to the Microdrive, the two track data pins
-	need to	be put into input mode.
+	need to be put into input mode.
  */
 void setTracksToRecord() {
 	DDRC = 0;
@@ -382,7 +382,7 @@ void setTracksToRecord() {
  */
 void setTracksToReplay() {
 	DDRC = MASK_BOTH_TRACKS;
-	PORTC = 0x3f; // idle level is HIGH; TODO: correct for QL?
+	PORTC = 0x3f; // idle level is HIGH
 }
 
 // ---------------------------------------------------------- DRIVE CONTROL ---

@@ -23,6 +23,8 @@ My use case is different though. Whenever I use my *Spectrum* or *QL*, it's in c
 
 The circuit is straightforward. You only need to connect a few of the *Nano*'s GPIO pins to an edge connector plug, program `arduino/oqtadrive.ino` onto the board, and you're all set. Note however that on the *QL*, the edge connector is upside down, just something to keep in mind when designing a case for the adapter, so that it works with both machines. It may also be advisable to place resistors in series into the data lines (`DATA1` and `DATA2`), maybe around 4.7kOhm. This would limit the current that can flow should there ever be bus contention due to the adapter misbehaving. So if you really want to make sure there's no risk of damaging your vintage machine, use the resistors! I haven't tried this myself, so feedback would be welcome.
 
+You may also connect two LEDs for indicating read & write activity to pins `D12` and `D11`, respectively (don't forget resistors). By default, the LEDs are on during idle and start blinking during activity. If you want them to be off during idle, set `LED_RW_IDLE_ON` to `false` in `oqtadrive.ino`.
+
 ### Configuration
 The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the top of `oqtadrive.ino`. There are a few more settings that can be changed, but there shouldn't really be a need to do that.
 
