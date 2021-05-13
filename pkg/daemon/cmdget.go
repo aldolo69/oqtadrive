@@ -36,7 +36,7 @@ func (c *command) get(d *Daemon) error {
 
 	if cart := d.getCartridge(drive); cart != nil {
 
-		sec := cart.GetSector()
+		sec := cart.GetNextSector()
 		if err := d.mru.setSector(sec); err != nil {
 			return err
 		}

@@ -34,7 +34,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xelalexv/microdrive/pkg/daemon"
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
 	"github.com/xelalexv/microdrive/pkg/microdrive/format"
 )
 
@@ -214,7 +213,7 @@ func (a *api) load(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// TODO: merge with load
+//
 func (a *api) unload(w http.ResponseWriter, req *http.Request) {
 
 	drive := getDrive(w, req)
@@ -224,8 +223,7 @@ func (a *api) unload(w http.ResponseWriter, req *http.Request) {
 
 	force := req.URL.Query().Get("force")
 
-	if err := a.daemon.SetCartridge(
-		drive, abstract.NewCartridge(), force == "true"); err != nil {
+	if err := a.daemon.UnloadCartridge(drive, force == "true"); err != nil {
 		if strings.Contains(err.Error(), "could not lock") {
 			handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
 		} else if strings.Contains(err.Error(), "is modified") {

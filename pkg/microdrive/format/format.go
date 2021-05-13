@@ -55,9 +55,6 @@ func NewFormat(typ string) (ReaderWriter, error) {
 	case "mdv":
 		return NewMDV(), nil
 
-	case "qldump":
-		return NewQLDump(), nil
-
 	default:
 		return nil, fmt.Errorf("unsupported cartridge format: %s", typ)
 	}

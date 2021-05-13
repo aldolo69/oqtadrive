@@ -26,12 +26,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/xelalexv/microdrive/pkg/microdrive"
 	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
 	"github.com/xelalexv/microdrive/pkg/microdrive/if1"
 	"github.com/xelalexv/microdrive/pkg/microdrive/raw"
 )
 
 // MDR is a reader/writer for MDR format
+// MDR files contain the sectors in replay order.
+//
 type MDR struct{}
 
 //
@@ -42,10 +45,11 @@ func NewMDR() *MDR {
 //
 func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 
-	cart := abstract.NewCartridge()
+	cart := abstract.NewCartridge(microdrive.IF1)
+	r := 0
 
-	// TODO: possibly add switch to reassign or keep order from MDR file
-	for r := abstract.SectorCount - 1; r > 0; r-- {
+	// TODO: possibly add switch to reassign or keep order from MDR file?
+	for ; r < cart.SectorCount(); r++ {
 
 		header := make([]byte, 27)
 		ix := raw.CopySyncPattern(header)
@@ -100,13 +104,14 @@ func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 			}
 		}
 
-		cart.SetSectorAt(r, sec)
+		cart.SetNextSector(sec)
 
 		if log.IsLevelEnabled(log.TraceLevel) {
 			sec.Emit(os.Stdout)
 		}
 	}
 
+	log.Debugf("%d sectors loaded", r)
 	cart.SetModified(false)
 
 	return cart, nil
@@ -115,9 +120,10 @@ func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 //
 func (m *MDR) Write(cart *abstract.Cartridge, out io.Writer) error {
 
-	for ix := abstract.SectorCount - 1; ix >= 0; ix-- {
-		sec := cart.GetSectorAt(ix)
-		if sec != nil {
+	cart.SeekToStart()
+
+	for ix := 0; ix < cart.SectorCount(); ix++ {
+		if sec := cart.GetNextSector(); sec != nil {
 			if _, err := out.Write(
 				sec.Header().Demuxed()[raw.SyncPatternLength:]); err != nil {
 				return err

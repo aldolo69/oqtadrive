@@ -135,6 +135,11 @@ func (d *Daemon) ResetConduit() error {
 	}
 }
 
+//
+func (d *Daemon) UnloadCartridge(ix int, force bool) error {
+	return d.SetCartridge(ix, abstract.NewCartridge(d.conduit.client), force)
+}
+
 // SetCartridge sets the cartridge at slot ix (1-based).
 func (d *Daemon) SetCartridge(ix int, c *abstract.Cartridge, force bool) error {
 

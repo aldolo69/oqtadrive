@@ -82,7 +82,7 @@ func (c *command) put(d *Daemon) error {
 		}
 
 		if cart := d.getCartridge(drive); cart != nil {
-			cart.SetSector(sec)
+			cart.SetNextSector(sec)
 			log.WithFields(log.Fields{
 				"drive":  drive,
 				"sector": sec.Index(),

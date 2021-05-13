@@ -24,10 +24,13 @@ import (
 	"context"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/xelalexv/microdrive/pkg/microdrive"
 )
 
 // sector numbers range from 1 through 254 for IF1, 0 through 254 for QL
-const SectorCount = 255
+const SectorCountIF1 = 254
+const SectorCountQL = 255
 
 //
 type Cartridge struct {
@@ -43,17 +46,18 @@ type Cartridge struct {
 }
 
 //
-func NewCartridge() *Cartridge {
+func NewCartridge(c microdrive.Client) *Cartridge {
+
+	count := SectorCountIF1
+	if c == microdrive.QL {
+		count = SectorCountQL
+	}
+
 	return &Cartridge{
-		sectors:  make([]*Sector, SectorCount),
-		accessIx: SectorCount - 1,
+		sectors:  make([]*Sector, count),
+		accessIx: count - 1,
 		lock:     make(chan bool, 1),
 	}
-}
-
-//
-func (c *Cartridge) Name() string {
-	return c.name
 }
 
 //
@@ -79,16 +83,85 @@ func (c *Cartridge) Unlock() {
 }
 
 //
-func (c *Cartridge) SetSector(s *Sector) {
-	c.SetSectorAt(s.Index(), s)
+func (c *Cartridge) Name() string {
+	return c.name
 }
 
 //
-func (c *Cartridge) SetSectorAt(ix int, s *Sector) {
+func (c *Cartridge) SectorCount() int {
+	return len(c.sectors)
+}
+
+// SeekToStart sets the access index such that the next call to GetNextSector
+// will retrieve the top-most sector, i.e. the sector with the highest sector
+// number.
+func (c *Cartridge) SeekToStart() {
+
+	if !c.IsFormatted() {
+		return
+	}
+
+	max := 0
+	maxIx := -1
+
+	for ix, sec := range c.sectors {
+		if sec != nil && sec.Index() > max {
+			max = sec.Index()
+			maxIx = ix
+		}
+	}
+
+	if maxIx > -1 {
+		c.accessIx = maxIx
+		c.RewindAccessIx(false)
+	}
+}
+
+// GetNextSector gets the sector at the next access index, skipping slots
+// with nil sectors. Access index points to the slot of the returned sector
+// afterwards.
+func (c *Cartridge) GetNextSector() *Sector {
+	return c.getSectorAt(c.AdvanceAccessIx(true))
+}
+
+// GetPreviousSector gets the sector at the previous access index, skipping
+// slots with nil sectors. Access index points to the slot of the returned
+// sector afterwards.
+func (c *Cartridge) GetPreviousSector() *Sector {
+	return c.getSectorAt(c.RewindAccessIx(true))
+}
+
+//
+func (c *Cartridge) getSectorAt(ix int) *Sector {
 	if 0 <= ix && ix < len(c.sectors) {
+		return c.sectors[ix]
+	}
+	return nil
+}
+
+// SetNextSector sets the provided sector at the next access index, whether
+// there is a sector present at that index or not. Access index points to the
+// slot of the set sector afterwards.
+func (c *Cartridge) SetNextSector(s *Sector) {
+	c.setSectorAt(c.AdvanceAccessIx(false), s)
+}
+
+// SetPreviousSector sets the provided sector at the previous access index,
+// whether there is a sector present at that index or not. Access index points
+// to the slot of the set sector afterwards.
+func (c *Cartridge) SetPreviousSector(s *Sector) {
+	c.setSectorAt(c.RewindAccessIx(false), s)
+}
+
+// setSector sets the provided sector in this cartridge at the given index.
+func (c *Cartridge) setSectorAt(ix int, s *Sector) {
+	if 0 <= ix && ix < len(c.sectors) {
+		log.Debugf("setting sector at index %d", ix)
 		c.sectors[ix] = s
 		c.name = s.Name()
 		c.modified = true
+	} else {
+		log.Errorf("trying to set sector at invalid index %d", ix)
 	}
 }
 
@@ -123,31 +196,43 @@ func (c *Cartridge) SetModified(m bool) {
 }
 
 //
-func (c *Cartridge) GetSector() *Sector {
-	return c.sectors[c.advanceAccessIx()]
+func (c *Cartridge) AdvanceAccessIx(skipEmpty bool) int {
+	return c.moveAccessIx(true, skipEmpty)
 }
 
 //
-func (c *Cartridge) GetSectorAt(ix int) *Sector {
-	if 0 <= ix && ix < len(c.sectors) {
-		return c.sectors[ix]
-	}
-	return nil
+func (c *Cartridge) RewindAccessIx(skipEmpty bool) int {
+	return c.moveAccessIx(false, skipEmpty)
 }
 
 //
-func (c *Cartridge) advanceAccessIx() int {
-	ret := c.accessIx
+func (c *Cartridge) moveAccessIx(forward, skipEmpty bool) int {
+
+	from := c.accessIx
+
 	if c.IsFormatted() {
 		for {
-			c.accessIx--
-			if c.accessIx < 0 {
-				c.accessIx = SectorCount - 1
+			if forward {
+				c.accessIx = c.ensureIx(c.accessIx - 1)
+			} else {
+				c.accessIx = c.ensureIx(c.accessIx + 1)
 			}
-			if c.sectors[c.accessIx] != nil {
+			if !skipEmpty || c.sectors[c.accessIx] != nil {
 				break
 			}
 		}
 	}
-	return ret
+
+	log.WithFields(
+		log.Fields{"from": from, "to": c.accessIx}).Tracef("moving access ix")
+
+	return c.accessIx
+}
+
+//
+func (c *Cartridge) ensureIx(ix int) int {
+	if ix < 0 {
+		return c.SectorCount() - 1 - (-(ix + 1))%c.SectorCount()
+	}
+	return ix % c.SectorCount()
 }

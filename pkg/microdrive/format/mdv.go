@@ -27,6 +27,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/xelalexv/microdrive/pkg/microdrive"
 	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
 	"github.com/xelalexv/microdrive/pkg/microdrive/ql"
 )
@@ -38,6 +39,8 @@ import (
 const MDVSectorLength = 686
 
 // MDV is a reader/writer for MDV format
+// MDV files contain the sectors in reverted replay order.
+//
 type MDV struct{}
 
 //
@@ -47,9 +50,9 @@ func NewMDV() *MDV {
 
 func (m *MDV) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 
-	cart := abstract.NewCartridge()
+	cart := abstract.NewCartridge(microdrive.QL)
 
-	for ix := 0; ix < abstract.SectorCount; ix++ {
+	for ix := 0; ix < cart.SectorCount(); ix++ {
 
 		sector := make([]byte, MDVSectorLength)
 		read, err := io.ReadFull(in, sector)
@@ -91,8 +94,8 @@ func (m *MDV) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 			}
 		}
 
-		log.Debugf("loaded sector with number %d at index %d", sec.Index(), ix)
-		cart.SetSectorAt(ix, sec)
+		log.Debugf("loaded sector with number %d", sec.Index())
+		cart.SetPreviousSector(sec)
 
 		if log.IsLevelEnabled(log.TraceLevel) {
 			sec.Emit(os.Stdout)
@@ -113,9 +116,13 @@ func (m *MDV) Write(cart *abstract.Cartridge, out io.Writer) error {
 		padding[ix] = 0x5a
 	}
 
-	for ix := 0; ix < abstract.SectorCount; ix++ {
+	cart.SeekToStart()
+	cart.AdvanceAccessIx(false)
 
-		sec := cart.GetSectorAt(ix)
+	for ix := 0; ix < cart.SectorCount(); ix++ {
+
+		sec := cart.GetPreviousSector()
+
 		if sec == nil { // MDV requires all sectors; FIXME: add blank one
 			return fmt.Errorf("missing sector %d", ix)
 		}

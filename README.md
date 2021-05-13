@@ -63,8 +63,6 @@ Load & save currently only support `.mdr` and `.mdv` formatted files. I've only 
 
 - The daemon currently keeps the cartridges in RAM only. If it is stopped, any changed cartridges that have not been saved yet will be lost. I'm planning to implement automatic persistence to disk later on.
 
-- Formatting an already formatted cartridge on the *QL* may not yield full capacity. This will be fixed.
-
 - I haven't done a lot of testing yet.
 
 ## Building
