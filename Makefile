@@ -90,6 +90,7 @@ build:
 	mkdir -p $(BINARIES) $(ISOLATED_PKG) $(ISOLATED_CACHE)
 	$(call utils, build_binary oqtactl linux amd64)
 ifneq ($(CROSS),)
+	$(call utils, build_binary oqtactl linux arm)
 	$(call utils, build_binary oqtactl darwin amd64)
 	$(call utils, build_binary oqtactl windows amd64)
 endif
