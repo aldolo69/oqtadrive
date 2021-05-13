@@ -23,8 +23,6 @@ package run
 import (
 	"github.com/xelalexv/microdrive/pkg/control"
 	"github.com/xelalexv/microdrive/pkg/daemon"
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
 )
 
 //
@@ -65,12 +63,6 @@ func (s *Serve) Run() error {
 	s.ParseSettings()
 
 	d := daemon.NewDaemon(s.Device)
-
-	for ix := 1; ix <= daemon.DriveCount; ix++ {
-		// FIXME any better idea?
-		d.SetCartridge(ix, abstract.NewCartridge(microdrive.IF1), true)
-	}
-
 	go d.Serve()
 
 	api := control.NewAPIServer(s.Port, d)

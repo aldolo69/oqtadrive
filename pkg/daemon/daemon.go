@@ -67,6 +67,8 @@ func (d *Daemon) listen() error {
 		return err
 	}
 
+	d.loadBlankCartridges()
+
 	var cmd *command
 	var err error
 
@@ -108,30 +110,48 @@ func (d *Daemon) listen() error {
 //
 func (d *Daemon) ResetConduit() error {
 
+	logger := log.WithField("port", d.port)
 	d.synced = false
 
 	if d.conduit != nil {
-		log.Infof("closing port %s", d.port)
+		logger.Info("closing serial port")
 		if err := d.conduit.close(); err != nil {
-			log.Errorf("error closing port: %v", err)
+			log.Errorf("error closing serial port: %v", err)
 		}
 		d.conduit = nil
 	}
 
+	logger.Info("opening serial port")
 	maxBackoff := 15 * time.Second
+	quiet := false
 
 	for backoff := time.Second; ; {
-		log.Infof("opening port %s", d.port)
 		if con, err := newConduit(d.port); err != nil {
-			log.Errorf("cannot open serial port: %v", err)
+			if !quiet {
+				logger.Warnf("cannot open serial port: %v", err)
+			}
+
 			if backoff < maxBackoff {
 				backoff *= 2
+			} else if !quiet {
+				logger.Warn(
+					"repeatedly failed to open serial port, will keep trying but stop logging about it")
+				quiet = true
 			}
 			time.Sleep(backoff)
+
 		} else {
+			logger.Info("serial port opened")
 			d.conduit = con
 			return nil
 		}
+	}
+}
+
+//
+func (d *Daemon) loadBlankCartridges() {
+	for ix := 1; ix <= len(d.cartridges); ix++ {
+		d.SetCartridge(ix, abstract.NewCartridge(d.conduit.client), true)
 	}
 }
 
