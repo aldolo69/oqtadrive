@@ -166,7 +166,7 @@ func (d *Daemon) SetCartridge(ix int, c *abstract.Cartridge, force bool) error {
 	if present, ok := d.GetCartridge(ix); !ok {
 		return fmt.Errorf("could not lock present cartridge")
 
-	} else if !force && present.IsModified() {
+	} else if !force && present != nil && present.IsModified() {
 		present.Unlock()
 		return fmt.Errorf("present cartridge is modified")
 	}

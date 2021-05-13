@@ -60,6 +60,7 @@ func (a *api) Serve() error {
 	addRoute(router, "load", "PUT", "/drive/{drive:[1-8]}", a.load)
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
 	addRoute(router, "save", "GET", "/drive/{drive:[1-8]}", a.save)
+	addRoute(router, "dump", "GET", "/drive/{drive:[1-8]}/dump", a.dump)
 	addRoute(router, "list", "GET", "/list", a.list)
 
 	addr := fmt.Sprintf(":%d", a.port)
@@ -129,6 +130,15 @@ func sendReply(body []byte, statusCode int, w http.ResponseWriter) {
 	setHeaders(w.Header(), false)
 	w.WriteHeader(statusCode)
 	if _, err := fmt.Fprintf(w, "%s\n", body); err != nil {
+		log.Errorf("problem sending reply: %v", err)
+	}
+}
+
+//
+func sendStreamReply(r io.Reader, statusCode int, w http.ResponseWriter) {
+	setHeaders(w.Header(), false)
+	w.WriteHeader(statusCode)
+	if _, err := io.Copy(w, r); err != nil {
 		log.Errorf("problem sending reply: %v", err)
 	}
 }
@@ -275,6 +285,39 @@ func (a *api) save(w http.ResponseWriter, req *http.Request) {
 	cart.SetModified(false)
 	w.WriteHeader(http.StatusOK)
 	w.Write(out.Bytes())
+}
+
+//
+func (a *api) dump(w http.ResponseWriter, req *http.Request) {
+
+	drive := getDrive(w, req)
+	if drive == -1 {
+		return
+	}
+
+	cart, ok := a.daemon.GetCartridge(drive)
+
+	if !ok {
+		handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
+		return
+	}
+
+	if cart == nil {
+		handleError(fmt.Errorf("no cartridge in drive %d", drive),
+			http.StatusUnprocessableEntity, w)
+		return
+	}
+
+	defer cart.Unlock()
+
+	read, write := io.Pipe()
+
+	go func() {
+		cart.Emit(write)
+		write.Close()
+	}()
+
+	sendStreamReply(read, http.StatusOK, w)
 }
 
 //

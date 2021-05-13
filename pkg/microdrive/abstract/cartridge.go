@@ -22,6 +22,7 @@ package abstract
 
 import (
 	"context"
+	"io"
 
 	log "github.com/sirupsen/logrus"
 
@@ -235,4 +236,15 @@ func (c *Cartridge) ensureIx(ix int) int {
 		return c.SectorCount() - 1 - (-(ix + 1))%c.SectorCount()
 	}
 	return ix % c.SectorCount()
+}
+
+//
+func (c *Cartridge) Emit(w io.Writer) {
+	c.SeekToStart()
+	for ix := 0; ix < c.SectorCount(); ix++ {
+		sec := c.GetNextSector()
+		if sec != nil {
+			sec.Emit(w)
+		}
+	}
 }

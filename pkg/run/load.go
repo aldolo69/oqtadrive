@@ -25,9 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 //
@@ -74,10 +72,9 @@ func (l *Load) Run() error {
 	}
 	defer f.Close()
 
-	ext := strings.TrimPrefix(filepath.Ext(l.File), ".")
-
 	resp, err := l.apiCall("PUT", fmt.Sprintf("/drive/%d?type=%s&force=%s",
-		l.Drive, ext, strconv.FormatBool(l.Force)), false, bufio.NewReader(f))
+		l.Drive, getExtension(l.File), strconv.FormatBool(l.Force)),
+		false, bufio.NewReader(f))
 	if err != nil {
 		return err
 	}

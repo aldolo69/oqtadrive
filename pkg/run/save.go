@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 //
@@ -79,13 +77,13 @@ func (s *Save) Run() error {
 		}
 	}
 
-	ext := strings.TrimPrefix(filepath.Ext(s.File), ".")
-
-	resp, err := s.apiCall(
-		"GET", fmt.Sprintf("/drive/%d?type=%s", s.Drive, ext), false, nil)
+	resp, err := s.apiCall("GET",
+		fmt.Sprintf("/drive/%d?type=%s", s.Drive, getExtension(s.File)),
+		false, nil)
 	if err != nil {
 		return err
 	}
+
 	defer resp.Close()
 
 	f, err := os.Create(s.File)

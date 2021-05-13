@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/xelalexv/microdrive/pkg/daemon"
 )
@@ -65,8 +67,8 @@ func (r *Runner) AddBaseSettings() {
 }
 
 //
-func (r *Runner) apiCall(
-	method, path string, json bool, body io.Reader) (io.ReadCloser, error) {
+func (r *Runner) apiCall(method, path string, json bool,
+	body io.Reader) (io.ReadCloser, error) {
 
 	client := &http.Client{}
 	// FIXME: parameterize server
@@ -100,4 +102,9 @@ func validateDrive(d int) error {
 			d, daemon.DriveCount)
 	}
 	return nil
+}
+
+//
+func getExtension(file string) string {
+	return strings.TrimPrefix(filepath.Ext(file), ".")
 }
