@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xelalexv/microdrive/pkg/daemon"
+	"github.com/xelalexv/oqtadrive/pkg/daemon"
 )
 
 //

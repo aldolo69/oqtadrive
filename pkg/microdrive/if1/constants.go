@@ -25,3 +25,9 @@ const HeaderLength = 27
 const HeaderLengthMux = HeaderLength + 1
 const RecordLength = 540
 const RecordLengthMux = RecordLength + 1
+
+//
+const RecordFlagsUsed = 0x06
+
+// sector numbers range from 1 through 254
+const SectorCount = 254

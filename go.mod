@@ -1,4 +1,4 @@
-module github.com/xelalexv/microdrive
+module github.com/xelalexv/oqtadrive
 
 go 1.15
 

@@ -26,10 +26,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
-	"github.com/xelalexv/microdrive/pkg/microdrive/if1"
-	"github.com/xelalexv/microdrive/pkg/microdrive/raw"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/if1"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/raw"
 )
 
 // MDR is a reader/writer for MDR format
@@ -43,9 +43,9 @@ func NewMDR() *MDR {
 }
 
 //
-func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
+func (m *MDR) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 
-	cart := abstract.NewCartridge(microdrive.IF1)
+	cart := if1.NewCartridge()
 	r := 0
 
 	// TODO: possibly add switch to reassign or keep order from MDR file?
@@ -94,7 +94,7 @@ func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 			}
 		}
 
-		sec, err := abstract.NewSector(hd, rec)
+		sec, err := microdrive.NewSector(hd, rec)
 		if err != nil {
 			if strict {
 				log.Errorf("defective sector, discarding: %v", err)
@@ -118,7 +118,7 @@ func (m *MDR) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 }
 
 //
-func (m *MDR) Write(cart *abstract.Cartridge, out io.Writer) error {
+func (m *MDR) Write(cart base.Cartridge, out io.Writer) error {
 
 	cart.SeekToStart()
 

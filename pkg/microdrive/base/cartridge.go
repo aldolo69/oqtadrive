@@ -18,7 +18,7 @@
    along with OqtaDrive. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package abstract
+package base
 
 import (
 	"context"
@@ -26,20 +26,27 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 )
 
-// sector numbers range from 1 through 254 for IF1, 0 through 254 for QL
-const SectorCountIF1 = 254
-const SectorCountQL = 255
+//
+func NewCartridge(c client.Client, sectorCount int) *cartridge {
+	return &cartridge{
+		client:   c,
+		sectors:  make([]Sector, sectorCount),
+		accessIx: sectorCount - 1,
+		lock:     make(chan bool, 1),
+	}
+}
 
 //
-type Cartridge struct {
+type cartridge struct {
 	//
 	name           string
 	writeProtected bool
+	client         client.Client
 	//
-	sectors  []*Sector
+	sectors  []Sector
 	accessIx int
 	modified bool
 	//
@@ -47,22 +54,7 @@ type Cartridge struct {
 }
 
 //
-func NewCartridge(c microdrive.Client) *Cartridge {
-
-	count := SectorCountIF1
-	if c == microdrive.QL {
-		count = SectorCountQL
-	}
-
-	return &Cartridge{
-		sectors:  make([]*Sector, count),
-		accessIx: count - 1,
-		lock:     make(chan bool, 1),
-	}
-}
-
-//
-func (c *Cartridge) Lock(ctx context.Context) bool {
+func (c *cartridge) Lock(ctx context.Context) bool {
 	select {
 	case c.lock <- true:
 		log.Debug("cartridge locked")
@@ -74,7 +66,7 @@ func (c *Cartridge) Lock(ctx context.Context) bool {
 }
 
 //
-func (c *Cartridge) Unlock() {
+func (c *cartridge) Unlock() {
 	select {
 	case <-c.lock:
 		log.Debug("cartridge unlocked")
@@ -84,19 +76,19 @@ func (c *Cartridge) Unlock() {
 }
 
 //
-func (c *Cartridge) Name() string {
+func (c *cartridge) Name() string {
 	return c.name
 }
 
 //
-func (c *Cartridge) SectorCount() int {
+func (c *cartridge) SectorCount() int {
 	return len(c.sectors)
 }
 
 // SeekToStart sets the access index such that the next call to GetNextSector
 // will retrieve the top-most sector, i.e. the sector with the highest sector
 // number.
-func (c *Cartridge) SeekToStart() {
+func (c *cartridge) SeekToStart() {
 
 	if !c.IsFormatted() {
 		return
@@ -118,44 +110,36 @@ func (c *Cartridge) SeekToStart() {
 	}
 }
 
-// GetNextSector gets the sector at the next access index, skipping slots
-// with nil sectors. Access index points to the slot of the returned sector
-// afterwards.
-func (c *Cartridge) GetNextSector() *Sector {
+//
+func (c *cartridge) GetNextSector() Sector {
 	return c.getSectorAt(c.AdvanceAccessIx(true))
 }
 
-// GetPreviousSector gets the sector at the previous access index, skipping
-// slots with nil sectors. Access index points to the slot of the returned
-// sector afterwards.
-func (c *Cartridge) GetPreviousSector() *Sector {
+//
+func (c *cartridge) GetPreviousSector() Sector {
 	return c.getSectorAt(c.RewindAccessIx(true))
 }
 
 //
-func (c *Cartridge) getSectorAt(ix int) *Sector {
+func (c *cartridge) getSectorAt(ix int) Sector {
 	if 0 <= ix && ix < len(c.sectors) {
 		return c.sectors[ix]
 	}
 	return nil
 }
 
-// SetNextSector sets the provided sector at the next access index, whether
-// there is a sector present at that index or not. Access index points to the
-// slot of the set sector afterwards.
-func (c *Cartridge) SetNextSector(s *Sector) {
+//
+func (c *cartridge) SetNextSector(s Sector) {
 	c.setSectorAt(c.AdvanceAccessIx(false), s)
 }
 
-// SetPreviousSector sets the provided sector at the previous access index,
-// whether there is a sector present at that index or not. Access index points
-// to the slot of the set sector afterwards.
-func (c *Cartridge) SetPreviousSector(s *Sector) {
+//
+func (c *cartridge) SetPreviousSector(s Sector) {
 	c.setSectorAt(c.RewindAccessIx(false), s)
 }
 
 // setSector sets the provided sector in this cartridge at the given index.
-func (c *Cartridge) setSectorAt(ix int, s *Sector) {
+func (c *cartridge) setSectorAt(ix int, s Sector) {
 	if 0 <= ix && ix < len(c.sectors) {
 		log.Debugf("setting sector at index %d", ix)
 		c.sectors[ix] = s
@@ -167,7 +151,7 @@ func (c *Cartridge) setSectorAt(ix int, s *Sector) {
 }
 
 //
-func (c *Cartridge) IsFormatted() bool {
+func (c *cartridge) IsFormatted() bool {
 	for _, s := range c.sectors {
 		if s != nil {
 			return true
@@ -177,37 +161,37 @@ func (c *Cartridge) IsFormatted() bool {
 }
 
 //
-func (c *Cartridge) IsWriteProtected() bool {
+func (c *cartridge) IsWriteProtected() bool {
 	return c.writeProtected
 }
 
 //
-func (c *Cartridge) SetWriteProtected(p bool) {
+func (c *cartridge) SetWriteProtected(p bool) {
 	c.writeProtected = p
 }
 
 //
-func (c *Cartridge) IsModified() bool {
+func (c *cartridge) IsModified() bool {
 	return c.modified
 }
 
 //
-func (c *Cartridge) SetModified(m bool) {
+func (c *cartridge) SetModified(m bool) {
 	c.modified = m
 }
 
 //
-func (c *Cartridge) AdvanceAccessIx(skipEmpty bool) int {
+func (c *cartridge) AdvanceAccessIx(skipEmpty bool) int {
 	return c.moveAccessIx(true, skipEmpty)
 }
 
 //
-func (c *Cartridge) RewindAccessIx(skipEmpty bool) int {
+func (c *cartridge) RewindAccessIx(skipEmpty bool) int {
 	return c.moveAccessIx(false, skipEmpty)
 }
 
 //
-func (c *Cartridge) moveAccessIx(forward, skipEmpty bool) int {
+func (c *cartridge) moveAccessIx(forward, skipEmpty bool) int {
 
 	from := c.accessIx
 
@@ -231,7 +215,7 @@ func (c *Cartridge) moveAccessIx(forward, skipEmpty bool) int {
 }
 
 //
-func (c *Cartridge) ensureIx(ix int) int {
+func (c *cartridge) ensureIx(ix int) int {
 	if ix < 0 {
 		return c.SectorCount() - 1 - (-(ix + 1))%c.SectorCount()
 	}
@@ -239,7 +223,7 @@ func (c *Cartridge) ensureIx(ix int) int {
 }
 
 //
-func (c *Cartridge) Emit(w io.Writer) {
+func (c *cartridge) Emit(w io.Writer) {
 	c.SeekToStart()
 	for ix := 0; ix < c.SectorCount(); ix++ {
 		sec := c.GetNextSector()

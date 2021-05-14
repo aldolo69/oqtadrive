@@ -25,10 +25,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/format"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format"
 )
 
 //
@@ -69,8 +67,7 @@ func (d *Dump) Run() error {
 		}
 		defer f.Close()
 
-		ext := strings.TrimPrefix(filepath.Ext(d.File), ".")
-		form, err := format.NewFormat(ext)
+		form, err := format.NewFormat(getExtension(d.File))
 		if err != nil {
 			return err
 		}

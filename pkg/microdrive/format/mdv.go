@@ -27,9 +27,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
-	"github.com/xelalexv/microdrive/pkg/microdrive/ql"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/ql"
 )
 
 // Strangely, a sector in an MDV file is longer than what the QL actually writes
@@ -48,9 +48,9 @@ func NewMDV() *MDV {
 	return &MDV{}
 }
 
-func (m *MDV) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
+func (m *MDV) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 
-	cart := abstract.NewCartridge(microdrive.QL)
+	cart := ql.NewCartridge()
 
 	for ix := 0; ix < cart.SectorCount(); ix++ {
 
@@ -84,7 +84,7 @@ func (m *MDV) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 			}
 		}
 
-		sec, err := abstract.NewSector(hd, rec)
+		sec, err := microdrive.NewSector(hd, rec)
 		if err != nil {
 			if strict {
 				log.Errorf("defective sector, discarding: %v", err)
@@ -109,7 +109,7 @@ func (m *MDV) Read(in io.Reader, strict bool) (*abstract.Cartridge, error) {
 }
 
 //
-func (m *MDV) Write(cart *abstract.Cartridge, out io.Writer) error {
+func (m *MDV) Write(cart base.Cartridge, out io.Writer) error {
 
 	padding := make([]byte, 256)
 	for ix := range padding {

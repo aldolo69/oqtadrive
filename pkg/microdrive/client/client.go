@@ -18,7 +18,7 @@
    along with OqtaDrive. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package microdrive
+package client
 
 //
 type Client int

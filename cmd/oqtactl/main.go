@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xelalexv/microdrive/pkg/run"
+	"github.com/xelalexv/oqtadrive/pkg/run"
 )
 
 //

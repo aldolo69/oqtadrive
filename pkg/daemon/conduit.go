@@ -29,10 +29,10 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
-	"github.com/xelalexv/microdrive/pkg/microdrive/if1"
-	"github.com/xelalexv/microdrive/pkg/microdrive/ql"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/if1"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/ql"
 )
 
 //
@@ -53,7 +53,7 @@ type conduit struct {
 	headerLengthMux int
 	recordLengthMux int
 	//
-	client microdrive.Client
+	client client.Client
 	port   io.ReadWriteCloser
 	//
 	sendBuf []byte
@@ -127,12 +127,12 @@ func (c *conduit) syncOnHello() error {
 func (c *conduit) isHello(h []byte) bool {
 
 	if bytes.Equal(h, helloIF1) {
-		c.client = microdrive.IF1
+		c.client = client.IF1
 		c.headerLengthMux = if1.HeaderLengthMux
 		c.recordLengthMux = if1.RecordLengthMux
 
 	} else if bytes.Equal(h, helloQL) {
-		c.client = microdrive.QL
+		c.client = client.QL
 		c.headerLengthMux = ql.HeaderLengthMux
 		c.recordLengthMux = ql.RecordLengthMux
 
@@ -165,7 +165,7 @@ func (c *conduit) receiveCommand() (*command, error) {
 }
 
 //
-func (c *conduit) fillBlock(s *abstract.Sector) int {
+func (c *conduit) fillBlock(s base.Sector) int {
 
 	header := s.Header().Muxed()
 	copy(c.sendBuf, header)
@@ -236,7 +236,7 @@ func (c *conduit) fillPreamble(raw []byte) int {
 	for ix := 0; ix < 10; ix++ {
 		raw[ix] = 0
 	}
-	if c.client == microdrive.QL {
+	if c.client == client.QL {
 		raw[10] = 0xf0
 	} else {
 		raw[10] = 0x0f
@@ -258,7 +258,7 @@ func (c *conduit) remainingBytes(raw []byte) int {
 	// nibble, in reversed bit order.
 
 	// for QL, track 1 is ahead of track 2, just the opposite of IF1.
-	if c.client == microdrive.QL {
+	if c.client == client.QL {
 		// QL
 		// raw byte | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12| 13|
 		//          --------------------------------------------------------

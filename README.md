@@ -51,9 +51,10 @@ Daemon logging behavior can be changed with these environment variables:
 ### Control Actions
 The daemon also serves an HTTP control API on port `8888` (can be changed with `-p` option). This is the integration point for any tooling that may evolve in the future, e.g. a browser-based GUI. It is also used by the provided command line actions. The most important ones are:
 
-- Load cartridge: `oqtactl load -d {drive} -i {file}`
-- Save cartridge: `oqtactl save -d {drive} -o {file}`
-- List drives: `oqtactl ls`
+- load cartridge: `oqtactl load -d {drive} -i {file}`
+- save cartridge: `oqtactl save -d {drive} -o {file}`
+- list drives: `oqtactl ls`
+- list cartridge content: `oqtactl ls -d {drive}` or `oqtactl ls -i {file}`
 
 Load & save currently only support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises.
 

@@ -21,8 +21,8 @@
 package run
 
 import (
-	"github.com/xelalexv/microdrive/pkg/control"
-	"github.com/xelalexv/microdrive/pkg/daemon"
+	"github.com/xelalexv/oqtadrive/pkg/control"
+	"github.com/xelalexv/oqtadrive/pkg/daemon"
 )
 
 //

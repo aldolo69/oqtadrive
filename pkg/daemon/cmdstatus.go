@@ -27,7 +27,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
 //
@@ -38,7 +38,7 @@ const flagReadonly = 4
 //
 func (c *command) status(d *Daemon) error {
 
-	var cart *abstract.Cartridge
+	var cart base.Cartridge
 	var state byte = 0x80
 
 	drive, err := c.drive()

@@ -33,8 +33,8 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/daemon"
-	"github.com/xelalexv/microdrive/pkg/microdrive/format"
+	"github.com/xelalexv/oqtadrive/pkg/daemon"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format"
 )
 
 //
@@ -61,7 +61,8 @@ func (a *api) Serve() error {
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
 	addRoute(router, "save", "GET", "/drive/{drive:[1-8]}", a.save)
 	addRoute(router, "dump", "GET", "/drive/{drive:[1-8]}/dump", a.dump)
-	addRoute(router, "list", "GET", "/list", a.list)
+	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
+	addRoute(router, "ls", "GET", "/list", a.list)
 
 	addr := fmt.Sprintf(":%d", a.port)
 	log.Infof("OqtaDrive API starts listening on %s", addr)
@@ -289,6 +290,16 @@ func (a *api) save(w http.ResponseWriter, req *http.Request) {
 
 //
 func (a *api) dump(w http.ResponseWriter, req *http.Request) {
+	a.driveInfo(w, req, "dump")
+}
+
+//
+func (a *api) driveList(w http.ResponseWriter, req *http.Request) {
+	a.driveInfo(w, req, "ls")
+}
+
+//
+func (a *api) driveInfo(w http.ResponseWriter, req *http.Request, info string) {
 
 	drive := getDrive(w, req)
 	if drive == -1 {
@@ -313,7 +324,12 @@ func (a *api) dump(w http.ResponseWriter, req *http.Request) {
 	read, write := io.Pipe()
 
 	go func() {
-		cart.Emit(write)
+		switch info {
+		case "dump":
+			cart.Emit(write)
+		case "ls":
+			cart.List(write)
+		}
 		write.Close()
 	}()
 

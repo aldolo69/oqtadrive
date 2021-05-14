@@ -32,6 +32,9 @@ const FormatExtraBytes = 86
 
 const MaxSectorLength = HeaderLength + RecordLength + FormatExtraBytes
 
+// sector numbers range from 0 through 254
+const SectorCount = 255
+
 //
 func toQLCheckSum(sum int) int {
 	return (0x0f0f + sum) % 0x10000

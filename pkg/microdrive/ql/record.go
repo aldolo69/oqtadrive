@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/raw"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/raw"
 )
 
 //
@@ -67,8 +67,8 @@ func NewRecord(data []byte, isRaw bool) (*record, error) {
 }
 
 //
-func (r *record) Client() microdrive.Client {
-	return microdrive.QL
+func (r *record) Client() client.Client {
+	return client.QL
 }
 
 //

@@ -25,14 +25,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
 //
 type mru struct {
-	sector *abstract.Sector
-	header abstract.Header
-	record abstract.Record
+	sector base.Sector
+	header base.Header
+	record base.Record
 }
 
 //
@@ -44,7 +45,7 @@ func (m *mru) reset() {
 }
 
 //
-func (m *mru) setSector(s *abstract.Sector) error {
+func (m *mru) setSector(s base.Sector) error {
 
 	if m.header != nil {
 		log.Warn("processing next sector while pending header present")
@@ -67,13 +68,13 @@ func (m *mru) setSector(s *abstract.Sector) error {
 }
 
 //
-func (m *mru) createSector() (*abstract.Sector, error) {
+func (m *mru) createSector() (base.Sector, error) {
 	defer m.reset()
-	return abstract.NewSector(m.header, m.record)
+	return microdrive.NewSector(m.header, m.record)
 }
 
 //
-func (m *mru) setHeader(h abstract.Header) error {
+func (m *mru) setHeader(h base.Header) error {
 
 	if m.header != nil {
 		return fmt.Errorf("processing next header while pending header present")
@@ -96,7 +97,7 @@ func (m *mru) setHeader(h abstract.Header) error {
 }
 
 //
-func (m *mru) setRecord(r abstract.Record) error {
+func (m *mru) setRecord(r base.Record) error {
 
 	if m.header == nil {
 		if m.sector == nil {

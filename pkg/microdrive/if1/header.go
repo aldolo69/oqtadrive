@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive"
-	"github.com/xelalexv/microdrive/pkg/microdrive/raw"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/raw"
 )
 
 //
@@ -65,8 +65,8 @@ func NewHeader(data []byte, isRaw bool) (*header, error) {
 }
 
 //
-func (h *header) Client() microdrive.Client {
-	return microdrive.IF1
+func (h *header) Client() client.Client {
+	return client.IF1
 }
 
 //

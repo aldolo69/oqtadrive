@@ -28,7 +28,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
 //
@@ -151,17 +152,23 @@ func (d *Daemon) ResetConduit() error {
 //
 func (d *Daemon) loadBlankCartridges() {
 	for ix := 1; ix <= len(d.cartridges); ix++ {
-		d.SetCartridge(ix, abstract.NewCartridge(d.conduit.client), true)
+		if cart, err := microdrive.NewCartridge(d.conduit.client); err == nil {
+			d.SetCartridge(ix, cart, true)
+		}
 	}
 }
 
 //
 func (d *Daemon) UnloadCartridge(ix int, force bool) error {
-	return d.SetCartridge(ix, abstract.NewCartridge(d.conduit.client), force)
+	cart, err := microdrive.NewCartridge(d.conduit.client)
+	if err != nil {
+		return err
+	}
+	return d.SetCartridge(ix, cart, force)
 }
 
 // SetCartridge sets the cartridge at slot ix (1-based).
-func (d *Daemon) SetCartridge(ix int, c *abstract.Cartridge, force bool) error {
+func (d *Daemon) SetCartridge(ix int, c base.Cartridge, force bool) error {
 
 	if present, ok := d.GetCartridge(ix); !ok {
 		return fmt.Errorf("could not lock present cartridge")
@@ -176,14 +183,14 @@ func (d *Daemon) SetCartridge(ix int, c *abstract.Cartridge, force bool) error {
 }
 
 //
-func (d *Daemon) setCartridge(ix int, c *abstract.Cartridge) {
+func (d *Daemon) setCartridge(ix int, c base.Cartridge) {
 	if 0 < ix && ix <= len(d.cartridges) {
-		d.cartridges[ix-1].Store(c)
+		d.cartridges[ix-1].Store(&c)
 	}
 }
 
 // GetCartridge gets the cartridge at slot ix (1-based)
-func (d *Daemon) GetCartridge(ix int) (*abstract.Cartridge, bool) {
+func (d *Daemon) GetCartridge(ix int) (base.Cartridge, bool) {
 
 	cart := d.getCartridge(ix)
 
@@ -201,10 +208,10 @@ func (d *Daemon) GetCartridge(ix int) (*abstract.Cartridge, bool) {
 }
 
 //
-func (d *Daemon) getCartridge(ix int) *abstract.Cartridge {
+func (d *Daemon) getCartridge(ix int) base.Cartridge {
 	if 0 < ix && ix <= len(d.cartridges) {
 		if cart := d.cartridges[ix-1].Load(); cart != nil {
-			return cart.(*abstract.Cartridge)
+			return *(cart.(*base.Cartridge))
 		}
 	}
 	return nil

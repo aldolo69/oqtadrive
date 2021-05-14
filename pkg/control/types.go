@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
 //
-func NewCartridge(cart *abstract.Cartridge) *Cartridge {
+func NewCartridge(cart base.Cartridge) *Cartridge {
 	return &Cartridge{
 		Name:           strings.TrimSpace(cart.Name()),
 		Formatted:      cart.IsFormatted(),

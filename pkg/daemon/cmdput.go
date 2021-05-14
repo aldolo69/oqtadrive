@@ -25,7 +25,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xelalexv/microdrive/pkg/microdrive/abstract"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive"
 )
 
 //
@@ -48,14 +48,14 @@ func (c *command) put(d *Daemon) error {
 	}
 
 	if len(data) < 200 {
-		if hd, err := abstract.NewHeader(d.conduit.client, data, true); err != nil {
+		if hd, err := microdrive.NewHeader(d.conduit.client, data, true); err != nil {
 			return fmt.Errorf("error creating header: %v", err)
 		} else if err = d.mru.setHeader(hd); err != nil {
 			return err
 		}
 
 	} else {
-		if rec, err := abstract.NewRecord(d.conduit.client, data, true); err != nil {
+		if rec, err := microdrive.NewRecord(d.conduit.client, data, true); err != nil {
 			return fmt.Errorf("error creating record: %v", err)
 		} else if err = d.mru.setRecord(rec); err != nil {
 			return err

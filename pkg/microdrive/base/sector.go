@@ -18,14 +18,26 @@
    along with OqtaDrive. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package abstract
+package base
 
 import (
 	"io"
 )
 
 //
-type Sector struct {
+func NewSector(h Header, r Record) (Sector, error) {
+	ret := &sector{
+		header: h,
+		record: r,
+	}
+	if err := ret.validate(); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+//
+type sector struct {
 	header Header
 	record Record
 	//
@@ -33,25 +45,15 @@ type Sector struct {
 }
 
 //
-func NewSector(h Header, r Record) (*Sector, error) {
-	s := &Sector{
-		header: h,
-		record: r,
-	}
-	s.validate()
-	return s, s.err
-}
-
-//
-func (s *Sector) Index() int {
+func (s *sector) Index() int {
 	if s.header == nil {
 		return -1
 	}
 	return s.header.Index()
 }
 
-// Name returns the name of the cartridge to which this sector belongs
-func (s *Sector) Name() string {
+//
+func (s *sector) Name() string {
 	if s.header == nil {
 		return ""
 	}
@@ -59,26 +61,27 @@ func (s *Sector) Name() string {
 }
 
 //
-func (s *Sector) Header() Header {
+func (s *sector) Header() Header {
 	return s.header
 }
 
 //
-func (s *Sector) Record() Record {
+func (s *sector) Record() Record {
 	return s.record
 }
 
 //
-func (s *Sector) SetRecord(r Record) {
+func (s *sector) SetRecord(r Record) {
 	s.record = r
 }
 
 //
-func (s *Sector) validate() {
+func (s *sector) validate() error {
+	return nil
 }
 
 // Emit emits this sector
-func (s *Sector) Emit(w io.Writer) {
+func (s *sector) Emit(w io.Writer) {
 	s.header.Emit(w)
 	s.record.Emit(w)
 }
