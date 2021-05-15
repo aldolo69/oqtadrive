@@ -56,7 +56,7 @@ The daemon also serves an HTTP control API on port `8888` (can be changed with `
 - list drives: `oqtactl ls`
 - list cartridge content: `oqtactl ls -d {drive}` or `oqtactl ls -i {file}`
 
-Load & save currently only support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises.
+`load` & `save` currently support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises. If you have [*Z80onMDR*](https://www.tomdalby.com/other/z80onmdr.html) installed on your system and added to `PATH`, `load` can load *Spectrum Z80* snapshot files into the daemon, converting them to *MDR* on the fly by calling *Z80onMDR*.
 
 ## Caveats & Current Limitations
 

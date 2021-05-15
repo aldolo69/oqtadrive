@@ -26,6 +26,9 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
+
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
 )
 
 //
@@ -36,7 +39,10 @@ func NewLoad() *Load {
 		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-p|--port {port}]",
 		"load cartridge into daemon",
 		"\nUse the load command to load a cartridge into the daemon.",
-		"", runnerHelpEpilogue, l.Run)
+		"", `- If you have Z80onMDR installed on your system and added to PATH, you can
+  directly load Z80 snapshot files into the daemon.
+
+`+runnerHelpEpilogue, l.Run)
 
 	l.AddBaseSettings()
 	l.AddSetting(&l.File, "input", "i", "", nil, "cartridge input file", true)
@@ -66,15 +72,27 @@ func (l *Load) Run() error {
 		return err
 	}
 
-	f, err := os.Open(l.File)
+	ext := getExtension(l.File)
+	in := l.File
+	var err error
+
+	if strings.ToLower(ext) == "z80" {
+		in, err = helper.Z80toMDR(l.File)
+		if err != nil {
+			return fmt.Errorf("error converting Z80 file: %v", err)
+		}
+		defer os.Remove(in)
+		ext = getExtension(in)
+	}
+
+	f, err := os.Open(in)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	resp, err := l.apiCall("PUT", fmt.Sprintf("/drive/%d?type=%s&force=%s",
-		l.Drive, getExtension(l.File), strconv.FormatBool(l.Force)),
-		false, bufio.NewReader(f))
+		l.Drive, ext, strconv.FormatBool(l.Force)), false, bufio.NewReader(f))
 	if err != nil {
 		return err
 	}

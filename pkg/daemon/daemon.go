@@ -160,6 +160,9 @@ func (d *Daemon) loadBlankCartridges() {
 
 //
 func (d *Daemon) UnloadCartridge(ix int, force bool) error {
+	if d.conduit == nil {
+		return fmt.Errorf("nothing to unload")
+	}
 	cart, err := microdrive.NewCartridge(d.conduit.client)
 	if err != nil {
 		return err

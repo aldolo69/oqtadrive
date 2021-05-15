@@ -23,6 +23,7 @@ package format
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
@@ -47,7 +48,7 @@ type ReaderWriter interface {
 //
 func NewFormat(typ string) (ReaderWriter, error) {
 
-	switch typ {
+	switch strings.ToLower(typ) {
 
 	case "mdr":
 		return NewMDR(), nil
