@@ -22,7 +22,7 @@
 SHELL = /bin/bash
 
 REPO = oqtadrive
-OQTADRIVE_RELEASE = 0.1.0
+OQTADRIVE_RELEASE = 0.1.1
 OQTADRIVE_VERSION := $(shell git describe --always --tag --dirty)
 
 ROOT = $(shell pwd)
@@ -91,6 +91,7 @@ build:
 	$(call utils, build_binary oqtactl linux amd64)
 ifneq ($(CROSS),)
 	$(call utils, build_binary oqtactl linux arm)
+	$(call utils, build_binary oqtactl linux arm64)
 	$(call utils, build_binary oqtactl darwin amd64)
 	$(call utils, build_binary oqtactl windows amd64)
 endif
