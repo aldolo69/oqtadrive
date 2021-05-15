@@ -114,7 +114,10 @@ type Header interface {
 	// Demuxed returns the plain data bytes of the header
 	Demuxed() []byte
 
-	Flag() int
+	//
+	Flags() byte
+
+	//
 	Index() int
 
 	// Name returns the name of the cartridge the header belongs to
@@ -139,8 +142,13 @@ type Record interface {
 	// Demuxed returns the plain data bytes of the record
 	Demuxed() []byte
 
-	Flag() int
+	//
+	Flags() byte
+
+	//
 	Index() int
+
+	//
 	Length() int
 
 	// Name returns the name of the record, if applicable

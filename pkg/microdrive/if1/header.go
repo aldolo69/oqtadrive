@@ -31,7 +31,7 @@ import (
 
 //
 var headerIndex = map[string][2]int{
-	"flag":     {12, 1},
+	"flags":    {12, 1},
 	"number":   {13, 1},
 	"spares":   {14, 2},
 	"name":     {16, 10},
@@ -80,8 +80,8 @@ func (h *header) Demuxed() []byte {
 }
 
 //
-func (h *header) Flag() int {
-	return int(h.block.GetByte("flag"))
+func (h *header) Flags() byte {
+	return h.block.GetByte("flags")
 }
 
 //
@@ -92,6 +92,11 @@ func (h *header) Index() int {
 //
 func (h *header) Name() string {
 	return h.block.GetString("name")
+}
+
+//
+func (h *header) Checksum() int {
+	return int(h.block.GetByte("checksum"))
 }
 
 //
@@ -109,8 +114,8 @@ func (h *header) Validate() error {
 
 //
 func (h *header) Emit(w io.Writer) {
-	io.WriteString(w, fmt.Sprintf(
-		"\nHEADER: %+q - flag: %X, index: %d\n", h.Name(), h.Flag(), h.Index()))
+	io.WriteString(w, fmt.Sprintf("\nHEADER: %+q - flag: %X, index: %d\n",
+		h.Name(), h.Flags(), h.Index()))
 	d := hex.Dumper(w)
 	defer d.Close()
 	d.Write(h.block.Data)

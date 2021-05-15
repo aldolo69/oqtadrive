@@ -31,7 +31,7 @@ import (
 
 //
 var recordIndex = map[string][2]int{
-	"flag":         {12, 1},
+	"flags":        {12, 1},
 	"number":       {13, 1},
 	"length":       {14, 2},
 	"name":         {16, 10},
@@ -82,8 +82,8 @@ func (r *record) Demuxed() []byte {
 }
 
 //
-func (r *record) Flag() int {
-	return int(r.block.GetByte("flag"))
+func (r *record) Flags() byte {
+	return r.block.GetByte("flags")
 }
 
 //
@@ -99,6 +99,21 @@ func (r *record) Length() int {
 //
 func (r *record) Name() string {
 	return r.block.GetString("name")
+}
+
+//
+func (r *record) HeaderChecksum() int {
+	return int(r.block.GetByte("checksum"))
+}
+
+//
+func (r *record) Data() []byte {
+	return r.block.GetSlice("data")
+}
+
+//
+func (r *record) DataChecksum() int {
+	return int(r.block.GetByte("dataChecksum"))
 }
 
 //
@@ -120,7 +135,7 @@ func (r *record) Validate() error {
 		// calculate checksum only based on actual record data length
 		// background: during ERASE, there always seems to be a bit set
 		// somewhere, although all should be zero...
-		if r.Flag() != 0 {
+		if r.Flags() != 0 {
 			return fmt.Errorf(
 				"invalid record data check sum, want %d, got %d", want, got)
 		}
@@ -133,7 +148,7 @@ func (r *record) Validate() error {
 func (r *record) Emit(w io.Writer) {
 	io.WriteString(w, fmt.Sprintf(
 		"\nRECORD: %+q - flag: %X, index: %d, length: %d\n",
-		r.Name(), r.Flag(), r.Index(), r.Length()))
+		r.Name(), r.Flags(), r.Index(), r.Length()))
 	d := hex.Dumper(w)
 	defer d.Close()
 	d.Write(r.block.Data)

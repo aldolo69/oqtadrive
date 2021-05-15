@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/raw"
@@ -31,7 +32,7 @@ import (
 
 //
 var headerIndex = map[string][2]int{
-	"flag":     {12, 1},
+	"flags":    {12, 1},
 	"number":   {13, 1},
 	"name":     {14, 10},
 	"random":   {24, 2},
@@ -80,8 +81,8 @@ func (h *header) Demuxed() []byte {
 }
 
 //
-func (h *header) Flag() int {
-	return int(h.block.GetByte("flag"))
+func (h *header) Flags() byte {
+	return h.block.GetByte("flags")
 }
 
 //
@@ -91,7 +92,21 @@ func (h *header) Index() int {
 
 //
 func (h *header) Name() string {
-	return h.block.GetString("name")
+	name := h.block.GetString("name")
+	if strings.IndexByte(name, 0) == -1 {
+		return name
+	}
+	return ""
+}
+
+//
+func (h *header) Random() int {
+	return int(h.block.GetInt("random"))
+}
+
+//
+func (h *header) Checksum() int {
+	return int(h.block.GetInt("checksum"))
 }
 
 //
@@ -110,8 +125,8 @@ func (h *header) Validate() error {
 
 //
 func (h *header) Emit(w io.Writer) {
-	io.WriteString(w, fmt.Sprintf(
-		"\nHEADER: %+q - flag: %X, index: %d\n", h.Name(), h.Flag(), h.Index()))
+	io.WriteString(w, fmt.Sprintf("\nHEADER: %+q - flags: %X, index: %d\n",
+		h.Name(), h.Flags(), h.Index()))
 	d := hex.Dumper(w)
 	defer d.Close()
 	d.Write(h.block.Data)

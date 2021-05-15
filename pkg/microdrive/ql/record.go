@@ -31,11 +31,13 @@ import (
 
 //
 var recordIndex = map[string][2]int{
-	"flag":              {12, 1},
+	"flags":             {12, 1},
 	"number":            {13, 1},
 	"header":            {12, 2},
 	"headerChecksum":    {14, 2},
 	"data":              {24, 512},
+	"length":            {24, 4},
+	"name":              {38, 38},
 	"dataChecksum":      {536, 2},
 	"extraData":         {538, 84},
 	"extraDataChecksum": {622, 2},
@@ -82,8 +84,8 @@ func (r *record) Demuxed() []byte {
 }
 
 //
-func (r *record) Flag() int {
-	return int(r.block.GetByte("flag"))
+func (r *record) Flags() byte {
+	return r.block.GetByte("flags")
 }
 
 //
@@ -93,12 +95,38 @@ func (r *record) Index() int {
 
 //
 func (r *record) Length() int {
-	return -1
+	l := r.block.GetSlice("length")
+	if len(l) != 4 {
+		return -1
+	}
+	return int(int32(l[0])<<24 | int32(l[1])<<16 | int32(l[2])<<8 | int32(l[3]))
 }
 
 //
 func (r *record) Name() string {
+	name := r.block.GetSlice("name")
+	if len(name) == 38 {
+		l := (int(name[0]) << 8) | int(name[1])
+		if 0 < l && l <= len(name)-2 {
+			return string(name[2 : 2+l])
+		}
+	}
 	return ""
+}
+
+//
+func (r *record) HeaderChecksum() int {
+	return r.block.GetInt("headerChecksum")
+}
+
+//
+func (r *record) Data() []byte {
+	return r.block.GetSlice("data")
+}
+
+//
+func (r *record) DataChecksum() int {
+	return r.block.GetInt("dataChecksum")
 }
 
 //
@@ -129,7 +157,7 @@ func (r *record) Validate() error {
 		return fmt.Errorf("invalid record data check sum: %v", err)
 	}
 
-	if r.Flag() == 0xaa && r.Index() == 0x55 &&
+	if r.Flags() == 0xaa && r.Index() == 0x55 &&
 		r.block.GetInt("headerChecksum") == 0x55aa {
 		if err := verifyQLCheckSum(r.CalculateExtraDataChecksum(),
 			r.block.GetInt("extraDataChecksum")); err != nil {
@@ -142,8 +170,8 @@ func (r *record) Validate() error {
 
 //
 func (r *record) Emit(w io.Writer) {
-	io.WriteString(w, fmt.Sprintf(
-		"\nRECORD: flag: %X, index: %d\n", r.Flag(), r.Index()))
+	io.WriteString(w, fmt.Sprintf("\nRECORD: flag: %X, index: %d\n",
+		r.Flags(), r.Index()))
 	d := hex.Dumper(w)
 	defer d.Close()
 	d.Write(r.block.Data)

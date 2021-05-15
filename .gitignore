@@ -1,5 +1,8 @@
 *.mdv
 *.mdr
+*.z80
+*.sna
+*.tap
 *.hex
 *.xcf
 *.sublime*

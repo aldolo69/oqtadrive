@@ -47,14 +47,12 @@ func (c *cartridge) List(w io.Writer) {
 	dir := make(map[string]int)
 	used := 0
 
-	c.SeekToStart()
-
 	for ix := 0; ix < c.SectorCount(); ix++ {
 
 		if sec := c.GetNextSector(); sec != nil {
 			if rec := sec.Record(); rec != nil {
 
-				if rec.Flag()&RecordFlagsUsed == 0 {
+				if rec.Flags()&RecordFlagsUsed == 0 {
 					continue
 				}
 
@@ -83,7 +81,7 @@ func (c *cartridge) List(w io.Writer) {
 	sort.Strings(files)
 
 	for _, f := range files {
-		fmt.Fprintf(w, "%-16s%d\n", f, dir[f])
+		fmt.Fprintf(w, "%-16s%8d\n", f, dir[f])
 	}
 
 	fmt.Fprintf(w, "\n%d of %d sectors used (%dkb free)\n\n",

@@ -23,6 +23,7 @@ package ql
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
@@ -40,6 +41,38 @@ type cartridge struct {
 
 //
 func (c *cartridge) List(w io.Writer) {
-	fmt.Fprintf(w,
-		"\n%s\n\nls for QL cartridges not yet implemented\n\n", c.Name())
+
+	fmt.Fprintf(w, "\n%s\n\n", c.Name())
+
+	dir := make(map[string]int)
+	used := c.SectorCount()
+
+	for ix := 0; ix < c.SectorCount(); ix++ {
+		if sec := c.GetNextSector(); sec != nil {
+			if rec := sec.Record(); rec != nil {
+				if rec.Flags() == 0xfd {
+					used--
+				}
+				if rec.Flags() > 0xf0 || rec.Index() > 0 {
+					continue
+				}
+				dir[rec.Name()] = rec.Length()
+			}
+		}
+	}
+
+	var files []string
+	for f := range dir {
+		files = append(files, f)
+	}
+	sort.Strings(files)
+
+	for _, f := range files {
+		if f != "" {
+			fmt.Fprintf(w, "%-16s%8d\n", f, dir[f])
+		}
+	}
+
+	fmt.Fprintf(w, "\n%d of %d sectors used (%dkb free)\n\n",
+		used, c.SectorCount(), (c.SectorCount()-used)/2)
 }

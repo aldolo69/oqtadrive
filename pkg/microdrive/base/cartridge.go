@@ -23,6 +23,7 @@ package base
 import (
 	"context"
 	"io"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -143,7 +144,9 @@ func (c *cartridge) setSectorAt(ix int, s Sector) {
 	if 0 <= ix && ix < len(c.sectors) {
 		log.Debugf("setting sector at index %d", ix)
 		c.sectors[ix] = s
-		c.name = s.Name()
+		if strings.TrimSpace(s.Name()) != "" {
+			c.name = s.Name()
+		}
 		c.modified = true
 	} else {
 		log.Errorf("trying to set sector at invalid index %d", ix)
