@@ -77,6 +77,11 @@ func (c *cartridge) Unlock() {
 }
 
 //
+func (c *cartridge) Client() client.Client {
+	return c.client
+}
+
+//
 func (c *cartridge) Name() string {
 	return c.name
 }

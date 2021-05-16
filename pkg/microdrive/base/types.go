@@ -42,6 +42,8 @@ type CartridgeBase interface {
 
 	Unlock()
 
+	Client() client.Client
+
 	Name() string
 
 	SectorCount() int

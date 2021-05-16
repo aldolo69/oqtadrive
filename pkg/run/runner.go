@@ -23,6 +23,7 @@ package run
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -91,7 +92,18 @@ func (r *Runner) apiCall(method, path string, json bool,
 		return nil, err
 	}
 
-	return resp.Body, nil
+	if 200 <= resp.StatusCode && resp.StatusCode <= 299 {
+		return resp.Body, nil
+	}
+
+	defer resp.Body.Close()
+
+	msg := "API call failed, no further details, could not read server response"
+	if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
+		msg = string(bytes)
+	}
+
+	return nil, fmt.Errorf("%s", msg)
 }
 
 //
