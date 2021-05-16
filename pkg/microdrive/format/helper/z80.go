@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -51,7 +52,8 @@ func Z80toMDR(in string) (string, error) {
 	}
 	tmp.Close()
 
-	name := strings.TrimSuffix(strings.ToUpper(in), ".Z80")
+	_, name := filepath.Split(in)
+	name = strings.TrimSuffix(strings.ToUpper(name), ".Z80")
 	if len(name) > 10 {
 		name = name[:10]
 	}
