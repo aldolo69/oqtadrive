@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -72,27 +73,21 @@ func (l *Load) Run() error {
 		return err
 	}
 
-	ext := getExtension(l.File)
-	in := l.File
-	var err error
-
-	if strings.ToLower(ext) == "z80" {
-		in, err = helper.Z80toMDR(l.File)
-		if err != nil {
-			return fmt.Errorf("error converting Z80 file: %v", err)
-		}
-		defer os.Remove(in)
-		ext = getExtension(in)
+	if trapped, err := l.trapZ80(); err != nil {
+		return err
+	} else if trapped {
+		defer os.Remove(l.File)
 	}
 
-	f, err := os.Open(in)
+	f, err := os.Open(l.File)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	resp, err := l.apiCall("PUT", fmt.Sprintf("/drive/%d?type=%s&force=%s",
-		l.Drive, ext, strconv.FormatBool(l.Force)), false, bufio.NewReader(f))
+		l.Drive, getExtension(l.File), strconv.FormatBool(l.Force)),
+		false, bufio.NewReader(f))
 	if err != nil {
 		return err
 	}
@@ -105,4 +100,33 @@ func (l *Load) Run() error {
 
 	fmt.Printf("%s", msg)
 	return nil
+}
+
+//
+func (l *Load) trapZ80() (bool, error) {
+
+	ext := getExtension(l.File)
+
+	if strings.ToLower(ext) != "z80" {
+		return false, nil
+	}
+
+	if runtime.GOOS == "linux" && ext == "Z80" {
+		if GetUserConfirmation(
+			"Z80onMDR under Linux doesn't accept uppercase '.Z80' extension. Rename to '*.z80'?") {
+			newPath := strings.TrimSuffix(l.File, ".Z80") + ".z80"
+			if err := os.Rename(l.File, newPath); err != nil {
+				return false, err
+			}
+			l.File = newPath
+		}
+	}
+
+	if mdr, err := helper.Z80toMDR(l.File); err != nil {
+		return false, fmt.Errorf("error converting Z80 file: %v", err)
+	} else {
+		l.File = mdr
+	}
+
+	return true, nil
 }

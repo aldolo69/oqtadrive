@@ -46,7 +46,7 @@ func Z80toMDR(in string) (string, error) {
 		return "", fmt.Errorf("%s is not a file", in)
 	}
 
-	tmp, err := ioutil.TempFile("", "oqtadrive.*")
+	tmp, err := ioutil.TempFile("", "oqtadrive.*.mdr")
 	if err != nil {
 		return "", err
 	}
@@ -58,13 +58,13 @@ func Z80toMDR(in string) (string, error) {
 		name = name[:10]
 	}
 
-	if err = runZ80onMDR("-f", tmp.Name(), "-m", name, in,
-		"-n", strings.ToLower(name)); err != nil {
+	if err = runZ80onMDR("-f", strings.TrimSuffix(tmp.Name(), ".mdr"),
+		"-m", name, in, "-n", strings.ToLower(name)); err != nil {
 		os.Remove(tmp.Name())
 		return "", err
 	}
 
-	return fmt.Sprintf("%s.mdr", tmp.Name()), nil
+	return tmp.Name(), nil
 }
 
 //
@@ -87,7 +87,7 @@ You need to install Z80onMDR on your system and add it to PATH.
 To get Z80onMDR, visit https://www.tomdalby.com/other/z80onmdr.html`)
 	}
 
-	fmt.Printf("\ninvoking %s...\n\n", bin)
+	fmt.Printf("\ninvoking: %s %v\n\n", bin, strings.Join(args, " "))
 	defer fmt.Println()
 
 	cmd := exec.Command(bin, args...)

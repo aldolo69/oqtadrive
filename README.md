@@ -46,6 +46,10 @@ There's a single binary `oqtactl`, that takes care of everything that needs to b
 ### Daemon
 Start the daemon with `oqtactl serve -d {serial device}`. It will look for the adapter at the specified serial port, and keep retrying if it's not yet present. You can also dis- and re-connect the adapter. The daemon should re-sync after a few seconds.
 
+#### Cartridge Auto-Save
+When a cartridge gets modified it is auto-saved as soon as the drive in which it is located stops. It is also auto-saved when it is initially loaded into the drive. Whenever the daemon is restarted, the previously loaded cartridges are automatically reloaded from auto-saved state and are immediately available for use. Keep in mind however that auto-save does not write back to the file from which a cartridge was originally loaded. This is because the daemon is not aware of that location, and would possibly not even be able to reach it (you can load cartridges via network). Auto-saved states are instead located in `.oqtadrive` within the home directory of the user running the daemon (exact location depends on used OS). It is up to the user to decide whether and where a modified cartridge should be saved (see `save` action below).
+
+#### Logging
 Daemon logging behavior can be changed with these environment variables:
 
 | variable     | function   | values                                            |
@@ -68,8 +72,6 @@ The daemon also serves an HTTP control API on port `8888` (can be changed with `
 ## Caveats & Current Limitations
 
 - Drive offset detection is only available for the *QL*, but may not always work reliably. It's possible to set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. I haven't tried yet to bypass the internal drives on a *QL*, so I'd love to hear how that goes. For the *Spectrum* the offset defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that. 
-
-- The daemon currently keeps the cartridges in RAM only. If it is stopped, any changed cartridges that have not been saved yet will be lost. I'm planning to implement automatic persistence to disk later on.
 
 - I haven't done a lot of testing yet.
 
