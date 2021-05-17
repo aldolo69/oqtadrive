@@ -43,3 +43,19 @@ func (c Client) String() string {
 		return "<unknown>"
 	}
 }
+
+//
+func (c Client) DefaultFormat() string {
+
+	switch c {
+
+	case IF1:
+		return "mdr"
+
+	case QL:
+		return "mdv"
+
+	default:
+		return ""
+	}
+}

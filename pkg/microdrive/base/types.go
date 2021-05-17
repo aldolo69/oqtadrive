@@ -80,6 +80,10 @@ type CartridgeBase interface {
 
 	SetModified(m bool)
 
+	IsAutoSaved() bool
+
+	SetAutoSaved(a bool)
+
 	AdvanceAccessIx(skipEmpty bool) int
 
 	RewindAccessIx(skipEmpty bool) int

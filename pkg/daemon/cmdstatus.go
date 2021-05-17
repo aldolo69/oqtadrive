@@ -28,6 +28,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
 )
 
 //
@@ -89,6 +90,9 @@ func (c *command) status(d *Daemon) error {
 			}
 		}
 	} else if cart != nil {
+		if err := helper.AutoSave(drive, cart); err != nil {
+			log.Errorf("auto-saving drive %d failed: %v", drive, err)
+		}
 		cart.Unlock()
 	}
 

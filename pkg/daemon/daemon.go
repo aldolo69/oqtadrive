@@ -30,6 +30,7 @@ import (
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
 )
 
 //
@@ -68,7 +69,7 @@ func (d *Daemon) listen() error {
 		return err
 	}
 
-	d.loadBlankCartridges()
+	d.loadCartridges()
 
 	var cmd *command
 	var err error
@@ -150,10 +151,22 @@ func (d *Daemon) ResetConduit() error {
 }
 
 //
-func (d *Daemon) loadBlankCartridges() {
+func (d *Daemon) loadCartridges() {
+
 	for ix := 1; ix <= len(d.cartridges); ix++ {
-		if cart, err := microdrive.NewCartridge(d.conduit.client); err == nil {
-			d.SetCartridge(ix, cart, true)
+
+		cart, err := helper.AutoLoad(ix)
+
+		if err != nil {
+			log.Errorf(
+				"failed loading auto-saved cartridge for drive %d: %v", ix, err)
+		} else {
+			if cart == nil {
+				cart, err = microdrive.NewCartridge(d.conduit.client)
+			}
+			if cart != nil && err == nil {
+				d.SetCartridge(ix, cart, true)
+			}
 		}
 	}
 }
@@ -182,6 +195,18 @@ func (d *Daemon) SetCartridge(ix int, c base.Cartridge, force bool) error {
 	}
 
 	d.setCartridge(ix, c)
+
+	if c == nil {
+		if err := helper.AutoRemove(ix); err != nil {
+			log.Errorf("removing auto-save file for drive %d failed: %v", ix, err)
+		}
+
+	} else if !c.IsAutoSaved() {
+		if err := helper.AutoSave(ix, c); err != nil {
+			log.Errorf("auto-saving drive %d failed: %v", ix, err)
+		}
+	}
+
 	return nil
 }
 

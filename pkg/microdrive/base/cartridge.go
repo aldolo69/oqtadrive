@@ -47,9 +47,10 @@ type cartridge struct {
 	writeProtected bool
 	client         client.Client
 	//
-	sectors  []Sector
-	accessIx int
-	modified bool
+	sectors   []Sector
+	accessIx  int
+	modified  bool
+	autosaved bool
 	//
 	lock chan bool
 }
@@ -186,6 +187,19 @@ func (c *cartridge) IsModified() bool {
 //
 func (c *cartridge) SetModified(m bool) {
 	c.modified = m
+	if m {
+		c.autosaved = false
+	}
+}
+
+//
+func (c *cartridge) IsAutoSaved() bool {
+	return c.autosaved
+}
+
+//
+func (c *cartridge) SetAutoSaved(a bool) {
+	c.autosaved = a
 }
 
 //
