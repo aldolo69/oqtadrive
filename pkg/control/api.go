@@ -57,12 +57,14 @@ type api struct {
 func (a *api) Serve() error {
 
 	router := mux.NewRouter().StrictSlash(true)
+
+	addRoute(router, "status", "GET", "/status", a.status)
+	addRoute(router, "ls", "GET", "/list", a.list)
 	addRoute(router, "load", "PUT", "/drive/{drive:[1-8]}", a.load)
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
 	addRoute(router, "save", "GET", "/drive/{drive:[1-8]}", a.save)
 	addRoute(router, "dump", "GET", "/drive/{drive:[1-8]}/dump", a.dump)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
-	addRoute(router, "ls", "GET", "/list", a.list)
 
 	addr := fmt.Sprintf(":%d", a.port)
 	log.Infof("OqtaDrive API starts listening on %s", addr)
@@ -81,7 +83,7 @@ func addRoute(r *mux.Router, name, method, pattern string,
 //
 func requestLogger(inner http.Handler, name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Infof("API BEGIN | %s\t%s\t%s\t%s",
+		log.Debugf("API BEGIN | %s\t%s\t%s\t%s",
 			r.RemoteAddr,
 			r.Method,
 			r.RequestURI,
@@ -89,7 +91,7 @@ func requestLogger(inner http.Handler, name string) http.Handler {
 		)
 		start := time.Now()
 		inner.ServeHTTP(w, r)
-		log.Infof("API END   | %s\t%s\t%s\t%s\t%s",
+		log.Debugf("API END   | %s\t%s\t%s\t%s\t%s",
 			r.RemoteAddr,
 			r.Method,
 			r.RequestURI,
@@ -100,56 +102,17 @@ func requestLogger(inner http.Handler, name string) http.Handler {
 }
 
 //
-func setHeaders(h http.Header, json bool) {
-	if json {
-		h.Set("Content-Type", "application/json; charset=UTF-8")
+func (a *api) status(w http.ResponseWriter, req *http.Request) {
+
+	stat := &Status{}
+	for drive := 1; drive <= daemon.DriveCount; drive++ {
+		stat.Add(a.daemon.GetStatus(drive))
+	}
+
+	if wantsJSON(req) {
+		sendJSONReply(stat, http.StatusOK, w)
 	} else {
-		h.Set("Content-Type", "text/plain; charset=UTF-8")
-	}
-}
-
-//
-func handleError(e error, statusCode int, w http.ResponseWriter) bool {
-
-	if e == nil {
-		return false
-	}
-
-	log.Errorf("%v", e)
-
-	setHeaders(w.Header(), false)
-	w.WriteHeader(statusCode)
-	if _, err := w.Write([]byte(fmt.Sprintf("%v\n", e))); err != nil {
-		log.Errorf("problem writing error: %v", err)
-	}
-
-	return true
-}
-
-//
-func sendReply(body []byte, statusCode int, w http.ResponseWriter) {
-	setHeaders(w.Header(), false)
-	w.WriteHeader(statusCode)
-	if _, err := fmt.Fprintf(w, "%s\n", body); err != nil {
-		log.Errorf("problem sending reply: %v", err)
-	}
-}
-
-//
-func sendStreamReply(r io.Reader, statusCode int, w http.ResponseWriter) {
-	setHeaders(w.Header(), false)
-	w.WriteHeader(statusCode)
-	if _, err := io.Copy(w, r); err != nil {
-		log.Errorf("problem sending reply: %v", err)
-	}
-}
-
-//
-func sendJSONReply(obj interface{}, statusCode int, w http.ResponseWriter) {
-	setHeaders(w.Header(), true)
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(obj); err != nil {
-		log.Errorf("problem writing error: %v", err)
+		sendReply([]byte(stat.String()), http.StatusOK, w)
 	}
 }
 
@@ -157,30 +120,31 @@ func sendJSONReply(obj interface{}, statusCode int, w http.ResponseWriter) {
 func (a *api) list(w http.ResponseWriter, req *http.Request) {
 
 	var list []*Cartridge
-	strList := "\nDRIVE CARTRIDGE       STATE"
 
 	for drive := 1; drive <= daemon.DriveCount; drive++ {
 
-		msg := "<no cartridge>"
+		c := &Cartridge{Status: a.daemon.GetStatus(drive)}
 
-		cart, ok := a.daemon.GetCartridge(drive)
-
-		if cart != nil {
-			c := NewCartridge(cart)
-			list = append(list, c)
-			msg = c.String()
-			cart.Unlock()
-
-		} else if !ok {
-			msg = "<drive busy>"
+		if c.Status == daemon.StatusIdle {
+			if cart, ok := a.daemon.GetCartridge(drive); cart != nil {
+				c.fill(cart)
+				cart.Unlock()
+			} else if !ok {
+				c.Status = daemon.StatusBusy
+			}
 		}
 
-		strList += fmt.Sprintf("\n  %d   %s", drive, msg)
+		list = append(list, c)
 	}
 
-	if req.Header.Get("Content-Type") == "application/json" {
+	if wantsJSON(req) {
 		sendJSONReply(list, http.StatusOK, w)
+
 	} else {
+		strList := "\nDRIVE CARTRIDGE       STATE"
+		for ix, c := range list {
+			strList += fmt.Sprintf("\n  %d   %s", ix+1, c.String())
+		}
 		sendReply([]byte(strList), http.StatusOK, w)
 	}
 }
@@ -353,4 +317,63 @@ func getFormat(w http.ResponseWriter, req *http.Request) format.ReaderWriter {
 		return nil
 	}
 	return ret
+}
+
+//
+func setHeaders(h http.Header, json bool) {
+	if json {
+		h.Set("Content-Type", "application/json; charset=UTF-8")
+	} else {
+		h.Set("Content-Type", "text/plain; charset=UTF-8")
+	}
+}
+
+//
+func handleError(e error, statusCode int, w http.ResponseWriter) bool {
+
+	if e == nil {
+		return false
+	}
+
+	log.Errorf("%v", e)
+
+	setHeaders(w.Header(), false)
+	w.WriteHeader(statusCode)
+	if _, err := w.Write([]byte(fmt.Sprintf("%v\n", e))); err != nil {
+		log.Errorf("problem writing error: %v", err)
+	}
+
+	return true
+}
+
+//
+func sendReply(body []byte, statusCode int, w http.ResponseWriter) {
+	setHeaders(w.Header(), false)
+	w.WriteHeader(statusCode)
+	if _, err := fmt.Fprintf(w, "%s\n", body); err != nil {
+		log.Errorf("problem sending reply: %v", err)
+	}
+}
+
+//
+func sendStreamReply(r io.Reader, statusCode int, w http.ResponseWriter) {
+	setHeaders(w.Header(), false)
+	w.WriteHeader(statusCode)
+	if _, err := io.Copy(w, r); err != nil {
+		log.Errorf("problem sending reply: %v", err)
+	}
+}
+
+//
+func sendJSONReply(obj interface{}, statusCode int, w http.ResponseWriter) {
+	setHeaders(w.Header(), true)
+	w.WriteHeader(statusCode)
+	if err := json.NewEncoder(w).Encode(obj); err != nil {
+		log.Errorf("problem writing error: %v", err)
+	}
+}
+
+// FIXME: make more tolerant
+func wantsJSON(req *http.Request) bool {
+	return req.Header.Get("Content-Type") == "application/json"
 }

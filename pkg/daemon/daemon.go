@@ -36,6 +36,11 @@ import (
 //
 const DriveCount = 8
 
+//
+const StatusEmpty = "empty"
+const StatusIdle = "idle"
+const StatusBusy = "busy"
+
 // the daemon that manages communication with the Interface 1/QL
 type Daemon struct {
 	//
@@ -65,11 +70,13 @@ func (d *Daemon) Serve() error {
 //
 func (d *Daemon) listen() error {
 
+	d.loadCartridges()
+
 	if err := d.ResetConduit(); err != nil {
 		return err
 	}
 
-	d.loadCartridges()
+	d.fillEmptyDrives()
 
 	var cmd *command
 	var err error
@@ -152,19 +159,21 @@ func (d *Daemon) ResetConduit() error {
 
 //
 func (d *Daemon) loadCartridges() {
-
 	for ix := 1; ix <= len(d.cartridges); ix++ {
-
-		cart, err := helper.AutoLoad(ix)
-
-		if err != nil {
+		if cart, err := helper.AutoLoad(ix); err != nil {
 			log.Errorf(
 				"failed loading auto-saved cartridge for drive %d: %v", ix, err)
-		} else {
-			if cart == nil {
-				cart, err = microdrive.NewCartridge(d.conduit.client)
-			}
-			if cart != nil && err == nil {
+		} else if cart != nil {
+			d.SetCartridge(ix, cart, true)
+		}
+	}
+}
+
+//
+func (d *Daemon) fillEmptyDrives() {
+	for ix := 1; ix <= len(d.cartridges); ix++ {
+		if d.getCartridge(ix) == nil {
+			if cart, err := microdrive.NewCartridge(d.conduit.client); err == nil {
 				d.SetCartridge(ix, cart, true)
 			}
 		}
@@ -215,6 +224,17 @@ func (d *Daemon) setCartridge(ix int, c base.Cartridge) {
 	if 0 < ix && ix <= len(d.cartridges) {
 		d.cartridges[ix-1].Store(&c)
 	}
+}
+
+// GetCartridge gets the cartridge at slot ix (1-based)
+func (d *Daemon) GetStatus(ix int) string {
+	if cart := d.getCartridge(ix); cart != nil {
+		if cart.IsLocked() {
+			return StatusBusy
+		}
+		return StatusIdle
+	}
+	return StatusEmpty
 }
 
 // GetCartridge gets the cartridge at slot ix (1-based)

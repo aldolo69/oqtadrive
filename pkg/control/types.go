@@ -24,29 +24,52 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/xelalexv/oqtadrive/pkg/daemon"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
 //
-func NewCartridge(cart base.Cartridge) *Cartridge {
-	return &Cartridge{
-		Name:           strings.TrimSpace(cart.Name()),
-		Formatted:      cart.IsFormatted(),
-		WriteProtected: cart.IsWriteProtected(),
-		Modified:       cart.IsModified(),
+type Status struct {
+	Drives []string `json:"drives"`
+}
+
+//
+func (s *Status) Add(d string) {
+	s.Drives = append(s.Drives, d)
+}
+
+//
+func (s *Status) String() string {
+	ret := "\n"
+	for ix, d := range s.Drives {
+		ret = fmt.Sprintf("%s%d: %s\n", ret, ix+1, d)
 	}
+	return ret
 }
 
 //
 type Cartridge struct {
 	Name           string `json:"name"`
+	Status         string `json:"status"`
 	Formatted      bool   `json:"formatted"`
 	WriteProtected bool   `json:"writeProtected"`
 	Modified       bool   `json:"modified"`
 }
 
 //
+func (c *Cartridge) fill(cart base.Cartridge) {
+	c.Name = strings.TrimSpace(cart.Name())
+	c.Formatted = cart.IsFormatted()
+	c.WriteProtected = cart.IsWriteProtected()
+	c.Modified = cart.IsModified()
+}
+
+//
 func (c *Cartridge) String() string {
+
+	if c.Status != daemon.StatusIdle {
+		return fmt.Sprintf("<%s>", c.Status)
+	}
 
 	name := c.Name
 

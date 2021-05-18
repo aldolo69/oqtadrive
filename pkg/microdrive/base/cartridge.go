@@ -78,6 +78,11 @@ func (c *cartridge) Unlock() {
 }
 
 //
+func (c *cartridge) IsLocked() bool {
+	return len(c.lock) > 0
+}
+
+//
 func (c *cartridge) Client() client.Client {
 	return c.client
 }

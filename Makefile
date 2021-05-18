@@ -90,12 +90,13 @@ build:
 	mkdir -p $(BINARIES) $(ISOLATED_PKG) $(ISOLATED_CACHE)
 	$(call utils, build_binary oqtactl linux amd64)
 ifneq ($(CROSS),)
+	$(call utils, build_binary oqtactl linux 386)
 	$(call utils, build_binary oqtactl linux arm)
 	$(call utils, build_binary oqtactl linux arm64)
 	$(call utils, build_binary oqtactl darwin amd64)
 	$(call utils, build_binary oqtactl windows amd64)
 endif
-	cd $(BINARIES); sha256sum oqtactl_* > checksums.txt
+	cd $(BINARIES); sha256sum oqtactl_*.zip > checksums.txt
 
 	[[ -L $(BINARIES)/oqtactl ]] || \
 		( cd $(BINARIES); ln -s oqtactl_$(OQTADRIVE_RELEASE)_linux_amd64 oqtactl )

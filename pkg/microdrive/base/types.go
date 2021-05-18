@@ -42,6 +42,8 @@ type CartridgeBase interface {
 
 	Unlock()
 
+	IsLocked() bool
+
 	Client() client.Client
 
 	Name() string
