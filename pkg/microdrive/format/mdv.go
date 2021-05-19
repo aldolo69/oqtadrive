@@ -48,11 +48,12 @@ func NewMDV() *MDV {
 	return &MDV{}
 }
 
-func (m *MDV) Read(in io.Reader, strict bool) (base.Cartridge, error) {
+func (m *MDV) Read(in io.Reader, strict, repair bool) (base.Cartridge, error) {
 
 	cart := ql.NewCartridge()
+	ix := 0
 
-	for ix := 0; ix < cart.SectorCount(); ix++ {
+	for ; ix < cart.SectorCount(); ix++ {
 
 		sector := make([]byte, MDVSectorLength)
 		read, err := io.ReadFull(in, sector)
@@ -65,36 +66,49 @@ func (m *MDV) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 		}
 
 		hd, err := ql.NewHeader(sector[:ql.HeaderLength], false)
-		if err != nil {
-			if strict {
-				log.Errorf("defective header, discarding sector: %v", err)
-				continue
+		if err != nil && repair {
+			if e := hd.FixChecksum(); e != nil {
+				log.Warnf("cannot fix checksum of header at index %d: %v", ix, e)
 			} else {
-				log.Warnf("defective header: %v", err)
+				log.Debugf("fixed checksum of header at index %d", ix)
+				err = nil
 			}
+		}
+		if err != nil {
+			msg := fmt.Sprintf("defective header at index %d: %v", ix, err)
+			if strict {
+				return nil, fmt.Errorf(msg)
+			}
+			log.Warn(msg)
 		}
 
 		rec, err := ql.NewRecord(sector[ql.HeaderLength:ql.MaxSectorLength], false)
-		if err != nil {
-			if strict {
-				log.Errorf("defective record, discarding sector: %v", err)
-				continue
+		if err != nil && repair {
+			if e := rec.FixChecksums(); e != nil {
+				log.Warnf("cannot fix checksums of record at index %d: %v", ix, e)
 			} else {
-				log.Warnf("defective record: %v", err)
+				log.Debugf("fixed checksums of record at index %d", ix)
+				err = nil
 			}
+		}
+		if err != nil {
+			msg := fmt.Sprintf("defective record at index %d: %v", ix, err)
+			if strict {
+				return nil, fmt.Errorf(msg)
+			}
+			log.Warn(msg)
 		}
 
 		sec, err := microdrive.NewSector(hd, rec)
 		if err != nil {
+			msg := fmt.Sprintf("defective sector at index %d: %v", ix, err)
 			if strict {
-				log.Errorf("defective sector, discarding: %v", err)
-				continue
-			} else {
-				log.Warnf("defective sector: %v", err)
+				return nil, fmt.Errorf(msg)
 			}
+			log.Warn(msg)
 		}
 
-		log.Debugf("loaded sector with number %d", sec.Index())
+		log.Tracef("loaded sector with number %d", sec.Index())
 		cart.SetPreviousSector(sec)
 
 		if log.IsLevelEnabled(log.TraceLevel) {
@@ -102,6 +116,11 @@ func (m *MDV) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 		}
 	}
 
+	if repair {
+		RepairOrder(cart)
+	}
+
+	log.Debugf("%d sectors loaded", ix)
 	cart.SetWriteProtected(false)
 	cart.SetModified(false)
 

@@ -63,7 +63,7 @@ func NewRecord(data []byte, isRaw bool) (*record, error) {
 	}
 
 	r.block = raw.NewBlock(recordIndex, dmx)
-	r.muxed = raw.Mux(r.block.Data, true)
+	r.mux()
 
 	return r, r.Validate()
 }
@@ -81,6 +81,11 @@ func (r *record) Muxed() []byte {
 //
 func (r *record) Demuxed() []byte {
 	return r.block.Data
+}
+
+//
+func (r *record) mux() {
+	r.muxed = raw.Mux(r.block.Data, true)
 }
 
 //
@@ -142,6 +147,48 @@ func (r *record) CalculateDataChecksum() int {
 //
 func (r *record) CalculateExtraDataChecksum() int {
 	return toQLCheckSum(r.block.Sum("extraData"))
+}
+
+//
+func (r *record) fixHeaderChecksum() error {
+	if err := r.block.SetInt(
+		"headerChecksum", r.CalculateHeaderChecksum()); err != nil {
+		return err
+	}
+	return nil
+}
+
+//
+func (r *record) fixDataChecksum() error {
+	if err := r.block.SetInt(
+		"dataChecksum", r.CalculateDataChecksum()); err != nil {
+		return err
+	}
+	return nil
+}
+
+//
+func (r *record) fixExtraDataChecksum() error {
+	if err := r.block.SetInt(
+		"extraDataChecksum", r.CalculateExtraDataChecksum()); err != nil {
+		return err
+	}
+	return nil
+}
+
+//
+func (r *record) FixChecksums() error {
+	if err := r.fixHeaderChecksum(); err != nil {
+		return err
+	}
+	if err := r.fixDataChecksum(); err != nil {
+		return err
+	}
+	if err := r.fixExtraDataChecksum(); err != nil {
+		return err
+	}
+	r.mux()
+	return r.Validate()
 }
 
 //

@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
@@ -37,11 +36,14 @@ func NewLoad() *Load {
 
 	l := &Load{}
 	l.Runner = *NewRunner(
-		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-p|--port {port}]",
+		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-r|--repair] [-p|--port {port}]",
 		"load cartridge into daemon",
 		"\nUse the load command to load a cartridge into the daemon.",
 		"", `- If you have Z80onMDR installed on your system and added to PATH, you can
   directly load Z80 snapshot files into the daemon.
+
+- Repair currently only recalculates checksums and reverts sector order, if needed.
+  If the cartridge is really broken, it won't be fixed this way.
 
 `+runnerHelpEpilogue, l.Run)
 
@@ -50,6 +52,8 @@ func NewLoad() *Load {
 	l.AddSetting(&l.Drive, "drive", "d", "", 1, "drive number (1-8)", false)
 	l.AddSetting(&l.Force, "force", "f", "", false,
 		"force replacing modified cartridge in daemon", false)
+	l.AddSetting(&l.Repair, "repair", "r", "", false,
+		"try to repair cartridge if corrupted", false)
 
 	return l
 }
@@ -59,9 +63,10 @@ type Load struct {
 	//
 	Runner
 	//
-	Drive int
-	File  string
-	Force bool
+	Drive  int
+	File   string
+	Force  bool
+	Repair bool
 }
 
 //
@@ -85,8 +90,9 @@ func (l *Load) Run() error {
 	}
 	defer f.Close()
 
-	resp, err := l.apiCall("PUT", fmt.Sprintf("/drive/%d?type=%s&force=%s",
-		l.Drive, getExtension(l.File), strconv.FormatBool(l.Force)),
+	resp, err := l.apiCall("PUT",
+		fmt.Sprintf("/drive/%d?type=%s&force=%v&repair=%v",
+			l.Drive, getExtension(l.File), l.Force, l.Repair),
 		false, bufio.NewReader(f))
 	if err != nil {
 		return err

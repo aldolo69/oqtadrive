@@ -52,6 +52,8 @@ type CartridgeBase interface {
 
 	SeekToStart()
 
+	Revert()
+
 	// GetNextSector gets the sector at the next access index, skipping slots
 	// with nil sectors. Access index points to the slot of the returned sector
 	// afterwards.

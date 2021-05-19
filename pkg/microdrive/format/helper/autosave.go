@@ -156,7 +156,7 @@ func AutoLoad(drive int) (base.Cartridge, error) {
 		return nil, err
 	}
 
-	if cart, err := fm.Read(in, true); err != nil {
+	if cart, err := fm.Read(in, true, false); err != nil {
 		return nil, err
 
 	} else {

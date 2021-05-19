@@ -21,42 +21,43 @@
 package format
 
 import (
-	"fmt"
-	"io"
-	"strings"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
 )
 
-// Reader interface for reading in a cartridge
-type Reader interface {
-	// when setting strict, invalid sectors are discarded
-	Read(in io.Reader, strict, repair bool) (base.Cartridge, error)
-}
-
-// Writer interface for writing out a cartridge
-type Writer interface {
-	Write(cart base.Cartridge, out io.Writer) error
-}
-
-// ReaderWriter interface for reading/writing a cartridge
-type ReaderWriter interface {
-	Reader
-	Writer
-}
-
 //
-func NewFormat(typ string) (ReaderWriter, error) {
+func RepairOrder(cart base.Cartridge) {
 
-	switch strings.ToLower(typ) {
-
-	case "mdr":
-		return NewMDR(), nil
-
-	case "mdv":
-		return NewMDV(), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported cartridge format: %s", typ)
+	if cart == nil {
+		return
 	}
+
+	cmp := 0
+
+	cart.SeekToStart()
+	var last base.Sector
+
+	for ix := 0; ix < cart.SectorCount(); ix++ {
+		sec := cart.GetNextSector()
+		if sec == nil {
+			continue
+		}
+		if last != nil {
+			if sec.Index() > last.Index() {
+				cmp++
+			}
+			if sec.Index() < last.Index() {
+				cmp--
+			}
+		}
+		last = sec
+	}
+
+	if cmp < 0 {
+		return
+	}
+
+	log.Debug("reverting sector order")
+	cart.Revert()
 }

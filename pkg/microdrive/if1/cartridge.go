@@ -31,7 +31,9 @@ import (
 
 //
 func NewCartridge() base.Cartridge {
-	return &cartridge{base.NewCartridge(client.IF1, SectorCount)}
+	ret := &cartridge{base.NewCartridge(client.IF1, SectorCount)}
+	ret.RewindAccessIx(false)
+	return ret
 }
 
 //

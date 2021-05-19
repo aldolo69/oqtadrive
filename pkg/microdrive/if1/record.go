@@ -61,7 +61,7 @@ func NewRecord(data []byte, isRaw bool) (*record, error) {
 	}
 
 	r.block = raw.NewBlock(recordIndex, dmx)
-	r.muxed = raw.Mux(r.block.Data, false)
+	r.mux()
 
 	return r, r.Validate()
 }
@@ -79,6 +79,11 @@ func (r *record) Muxed() []byte {
 //
 func (r *record) Demuxed() []byte {
 	return r.block.Data
+}
+
+//
+func (r *record) mux() {
+	r.muxed = raw.Mux(r.block.Data, false)
 }
 
 //
@@ -102,8 +107,8 @@ func (r *record) Name() string {
 }
 
 //
-func (r *record) HeaderChecksum() int {
-	return int(r.block.GetByte("checksum"))
+func (r *record) HeaderChecksum() byte {
+	return r.block.GetByte("checksum")
 }
 
 //
@@ -112,23 +117,63 @@ func (r *record) Data() []byte {
 }
 
 //
-func (r *record) DataChecksum() int {
-	return int(r.block.GetByte("dataChecksum"))
+func (r *record) DataChecksum() byte {
+	return r.block.GetByte("dataChecksum")
+}
+
+//
+func (r *record) CalculateHeaderChecksum() byte {
+	return byte(r.block.Sum("header") % 255)
+}
+
+//
+func (r *record) CalculateDataChecksum() byte {
+	return byte(r.block.Sum("data") % 255)
+}
+
+//
+func (r *record) fixHeaderChecksum() error {
+	if err := r.block.SetByte(
+		"checksum", r.CalculateHeaderChecksum()); err != nil {
+		return err
+	}
+	return nil
+}
+
+//
+func (r *record) fixDataChecksum() error {
+	if err := r.block.SetByte(
+		"dataChecksum", r.CalculateDataChecksum()); err != nil {
+		return err
+	}
+	return nil
+}
+
+//
+func (r *record) FixChecksums() error {
+	if err := r.fixHeaderChecksum(); err != nil {
+		return err
+	}
+	if err := r.fixDataChecksum(); err != nil {
+		return err
+	}
+	r.mux()
+	return r.Validate()
 }
 
 //
 func (r *record) Validate() error {
 
-	want := r.block.GetByte("checksum")
-	got := byte(r.block.Sum("header") % 255)
+	want := r.HeaderChecksum()
+	got := r.CalculateHeaderChecksum()
 
 	if want != got {
 		return fmt.Errorf(
 			"invalid record descriptor check sum, want %d, got %d", want, got)
 	}
 
-	want = r.block.GetByte("dataChecksum")
-	got = byte(r.block.Sum("data") % 255)
+	want = r.DataChecksum()
+	got = r.CalculateDataChecksum()
 
 	if want != got {
 		// FIXME: is this really correct?

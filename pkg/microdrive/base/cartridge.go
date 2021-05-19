@@ -123,6 +123,14 @@ func (c *cartridge) SeekToStart() {
 }
 
 //
+func (c *cartridge) Revert() {
+	s := c.sectors
+	for l, r := 0, len(s)-1; l < r; l, r = l+1, r-1 {
+		s[l], s[r] = s[r], s[l]
+	}
+}
+
+//
 func (c *cartridge) GetNextSector() Sector {
 	return c.getSectorAt(c.AdvanceAccessIx(true))
 }
@@ -222,7 +230,7 @@ func (c *cartridge) moveAccessIx(forward, skipEmpty bool) int {
 
 	from := c.accessIx
 
-	if c.IsFormatted() {
+	if !skipEmpty || c.IsFormatted() {
 		for {
 			if forward {
 				c.accessIx = c.ensureIx(c.accessIx - 1)

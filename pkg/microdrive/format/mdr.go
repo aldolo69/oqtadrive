@@ -21,6 +21,7 @@
 package format
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -43,7 +44,7 @@ func NewMDR() *MDR {
 }
 
 //
-func (m *MDR) Read(in io.Reader, strict bool) (base.Cartridge, error) {
+func (m *MDR) Read(in io.Reader, strict, repair bool) (base.Cartridge, error) {
 
 	cart := if1.NewCartridge()
 	r := 0
@@ -75,32 +76,46 @@ func (m *MDR) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 		}
 
 		hd, err := if1.NewHeader(header, false)
-		if err != nil {
-			if strict {
-				log.Errorf("defective header, discarding sector: %v", err)
-				continue
+		if err != nil && repair {
+			if e := hd.FixChecksum(); e != nil {
+				log.Warnf("cannot fix checksum of header at index %d: %v", r, e)
 			} else {
-				log.Warnf("defective header: %v", err)
+				log.Debugf("fixed checksum of header at index %d", r)
+				err = nil
 			}
+		}
+		if err != nil {
+			msg := fmt.Sprintf("defective header at index %d: %v", r, err)
+			if strict {
+				return nil, fmt.Errorf(msg)
+			}
+			log.Warn(msg)
 		}
 
 		rec, err := if1.NewRecord(record, false)
-		if err != nil {
-			if strict {
-				log.Errorf("defective record, discarding sector: %v", err)
-				continue
+		if err != nil && repair {
+			if e := rec.FixChecksums(); e != nil {
+				log.Warnf("cannot fix checksums of record at index %d: %v", r, e)
 			} else {
-				log.Warnf("defective record: %v", err)
+				log.Debugf("fixed checksums of record at index %d", r)
+				err = nil
 			}
+		}
+		if err != nil {
+			msg := fmt.Sprintf("defective record at index %d: %v", r, err)
+			if strict {
+				return nil, fmt.Errorf(msg)
+			}
+			log.Warn(msg)
 		}
 
 		sec, err := microdrive.NewSector(hd, rec)
 		if err != nil {
+			msg := fmt.Sprintf("defective sector at index %d: %v", r, err)
 			if strict {
-				log.Errorf("defective sector, discarding: %v", err)
-				continue
+				return nil, fmt.Errorf(msg)
 			} else {
-				log.Warnf("defective sector: %v", err)
+				log.Warn(msg)
 			}
 		}
 
@@ -109,6 +124,10 @@ func (m *MDR) Read(in io.Reader, strict bool) (base.Cartridge, error) {
 		if log.IsLevelEnabled(log.TraceLevel) {
 			sec.Emit(os.Stdout)
 		}
+	}
+
+	if repair {
+		RepairOrder(cart)
 	}
 
 	log.Debugf("%d sectors loaded", r)

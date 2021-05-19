@@ -162,17 +162,18 @@ func (a *api) load(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cart, err := reader.Read(io.LimitReader(req.Body, 1048576), false)
-	if handleError(err, http.StatusUnprocessableEntity, w) {
+	cart, err := reader.Read(io.LimitReader(req.Body, 1048576), true,
+		isFlagSet(req, "repair"))
+	if err != nil {
+		handleError(fmt.Errorf("cartridge corrupted: %v", err),
+			http.StatusUnprocessableEntity, w)
 		return
 	}
 	if handleError(req.Body.Close(), http.StatusInternalServerError, w) {
 		return
 	}
 
-	force := req.URL.Query().Get("force")
-
-	if err := a.daemon.SetCartridge(drive, cart, force == "true"); err != nil {
+	if err := a.daemon.SetCartridge(drive, cart, isFlagSet(req, "force")); err != nil {
 		if strings.Contains(err.Error(), "could not lock") {
 			handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
 		} else if strings.Contains(err.Error(), "is modified") {
@@ -196,9 +197,7 @@ func (a *api) unload(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	force := req.URL.Query().Get("force")
-
-	if err := a.daemon.UnloadCartridge(drive, force == "true"); err != nil {
+	if err := a.daemon.UnloadCartridge(drive, isFlagSet(req, "force")); err != nil {
 		if strings.Contains(err.Error(), "could not lock") {
 			handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
 		} else if strings.Contains(err.Error(), "is modified") {
@@ -312,11 +311,21 @@ func getDrive(w http.ResponseWriter, req *http.Request) int {
 
 //
 func getFormat(w http.ResponseWriter, req *http.Request) format.ReaderWriter {
-	ret, err := format.NewFormat(req.URL.Query().Get("type"))
+	ret, err := format.NewFormat(getArg(req, "type"))
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return nil
 	}
 	return ret
+}
+
+//
+func isFlagSet(req *http.Request, flag string) bool {
+	return getArg(req, flag) == "true"
+}
+
+//
+func getArg(req *http.Request, arg string) string {
+	return req.URL.Query().Get(arg)
 }
 
 //

@@ -59,7 +59,7 @@ func NewHeader(data []byte, isRaw bool) (*header, error) {
 	}
 
 	h.block = raw.NewBlock(headerIndex, dmx)
-	h.muxed = raw.Mux(h.block.Data, false)
+	h.mux()
 
 	return h, h.Validate()
 }
@@ -77,6 +77,11 @@ func (h *header) Muxed() []byte {
 //
 func (h *header) Demuxed() []byte {
 	return h.block.Data
+}
+
+//
+func (h *header) mux() {
+	h.muxed = raw.Mux(h.block.Data, false)
 }
 
 //
@@ -100,10 +105,24 @@ func (h *header) Checksum() int {
 }
 
 //
+func (h *header) CalculateChecksum() byte {
+	return byte(h.block.Sum("header") % 255)
+}
+
+//
+func (h *header) FixChecksum() error {
+	if err := h.block.SetByte("checksum", h.CalculateChecksum()); err != nil {
+		return err
+	}
+	h.mux()
+	return h.Validate()
+}
+
+//
 func (h *header) Validate() error {
 
 	want := h.block.GetByte("checksum")
-	got := byte(h.block.Sum("header") % 255)
+	got := h.CalculateChecksum()
 
 	if want != got {
 		return fmt.Errorf(

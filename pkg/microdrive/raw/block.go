@@ -20,6 +20,10 @@
 
 package raw
 
+import (
+	"fmt"
+)
+
 //
 func NewBlock(index map[string][2]int, data []byte) *Block {
 	return &Block{index: index, Data: data}
@@ -32,6 +36,16 @@ type Block struct {
 }
 
 //
+func illegalKey(k string) error {
+	return fmt.Errorf("illegal key %s", k)
+}
+
+//
+func typeMismatch(key, typ string) error {
+	return fmt.Errorf("key %s is not of type %s", key, typ)
+}
+
+//
 func (b *Block) GetByte(key string) byte {
 	if ix, ok := b.index[key]; ok {
 		if 0 <= ix[0] && ix[0] < len(b.Data) && ix[1] == 1 {
@@ -39,6 +53,18 @@ func (b *Block) GetByte(key string) byte {
 		}
 	}
 	return 0
+}
+
+//
+func (b *Block) SetByte(key string, val byte) error {
+	if ix, ok := b.index[key]; ok {
+		if 0 <= ix[0] && ix[0] < len(b.Data) && ix[1] == 1 {
+			b.Data[ix[0]] = val
+			return nil
+		}
+		return typeMismatch(key, "byte")
+	}
+	return illegalKey(key)
 }
 
 //
@@ -54,6 +80,20 @@ func (b *Block) GetSlice(key string) []byte {
 }
 
 //
+func (b *Block) SetSlice(key string, val []byte) error {
+	bytes := b.GetSlice(key)
+	if len(bytes) == 0 {
+		return illegalKey(key)
+	}
+	if len(bytes) != len(val) {
+		return fmt.Errorf(
+			"wrong slice length: want %d, have %d", len(bytes), len(val))
+	}
+	copy(bytes, val)
+	return nil
+}
+
+//
 func (b *Block) GetInt(key string) int {
 	bytes := b.GetSlice(key)
 	if len(bytes) != 2 {
@@ -63,8 +103,27 @@ func (b *Block) GetInt(key string) int {
 }
 
 //
+func (b *Block) SetInt(key string, val int) error {
+	bytes := b.GetSlice(key)
+	if len(bytes) == 0 {
+		return illegalKey(key)
+	}
+	if len(bytes) != 2 {
+		return typeMismatch(key, "int")
+	}
+	bytes[0] = byte(val)
+	bytes[1] = byte(val >> 8)
+	return nil
+}
+
+//
 func (b *Block) GetString(key string) string {
 	return string(b.GetSlice(key))
+}
+
+//
+func (b *Block) SetString(key, val string) error {
+	return b.SetSlice(key, []byte(val))
 }
 
 //
