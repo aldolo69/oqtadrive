@@ -42,6 +42,18 @@ var recordIndex = map[string][2]int{
 }
 
 //
+var recordIndexEarlyROMs = map[string][2]int{
+	"flags":        {12, 1},
+	"number":       {13, 1},
+	"length":       {14, 2},
+	"name":         {16, 10},
+	"header":       {12, 14},
+	"checksum":     {26, 1},
+	"data":         {27, 610},
+	"dataChecksum": {638, 1},
+}
+
+//
 type record struct {
 	muxed []byte
 	block *raw.Block
@@ -60,7 +72,11 @@ func NewRecord(data []byte, isRaw bool) (*record, error) {
 		copy(dmx, data)
 	}
 
-	r.block = raw.NewBlock(recordIndex, dmx)
+	if len(dmx) > RecordLength { // long FORMAT record from earlier ROMs
+		r.block = raw.NewBlock(recordIndexEarlyROMs, dmx)
+	} else {
+		r.block = raw.NewBlock(recordIndex, dmx)
+	}
 	r.mux()
 
 	return r, r.Validate()
@@ -164,7 +180,15 @@ func (r *record) FixChecksums() error {
 //
 func (r *record) Validate() error {
 
-	want := r.HeaderChecksum()
+	// FORMAT records from earlier ROMs do not use correct checksums
+	formatEarlyROM := r.block.Length() > RecordLength
+
+	var want byte
+	if formatEarlyROM {
+		want = 2
+	} else {
+		want = r.HeaderChecksum()
+	}
 	got := r.CalculateHeaderChecksum()
 
 	if want != got {
@@ -172,7 +196,11 @@ func (r *record) Validate() error {
 			"invalid record descriptor check sum, want %d, got %d", want, got)
 	}
 
-	want = r.DataChecksum()
+	if formatEarlyROM {
+		want = 210
+	} else {
+		want = r.DataChecksum()
+	}
 	got = r.CalculateDataChecksum()
 
 	if want != got {

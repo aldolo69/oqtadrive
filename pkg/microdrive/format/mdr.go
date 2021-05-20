@@ -143,6 +143,17 @@ func (m *MDR) Write(cart base.Cartridge, out io.Writer) error {
 
 	for ix := 0; ix < cart.SectorCount(); ix++ {
 		if sec := cart.GetNextSector(); sec != nil {
+			if len(sec.Record().Demuxed()) > if1.RecordLength {
+				// When formating on a Spectrum with an early ROM, records are
+				// longer than they normally would. The last phase of FORMAT
+				// overwrites these long records with standard ones, but some
+				// (in particular sector 254) may be left over. If we still find
+				// one here, discard it.
+				log.Debugf(
+					"discarding sector %d (index %d) with long FORMAT record",
+					sec.Index(), ix)
+				continue
+			}
 			if _, err := out.Write(
 				sec.Header().Demuxed()[raw.SyncPatternLength:]); err != nil {
 				return err

@@ -39,6 +39,7 @@ import (
 const commandLength = 4
 const sendBufferLength = 1024
 const receiveBufferLength = 1024
+const stopMarkerLength = 4
 
 const headerFlagIndex = 12
 
@@ -195,10 +196,16 @@ func (c *conduit) receiveBlock() ([]byte, error) {
 		return nil, fmt.Errorf("error reading block header: %v", err)
 	}
 
+	var stop []byte
+
 	// unknown length, need to check what is being sent
 	if rem := c.remainingBytes(raw); rem == 0 {
 		log.Trace("header block received")
+		stop = raw[c.headerLengthMux : c.headerLengthMux+stopMarkerLength]
 		raw = raw[:c.headerLengthMux]
+		if err := c.readStopMarker(stop); err != nil {
+			return nil, err
+		}
 
 	} else {
 		log.Trace("record block received")
@@ -206,17 +213,36 @@ func (c *conduit) receiveBlock() ([]byte, error) {
 		if err := c.receive(raw[c.headerLengthMux:end]); err != nil {
 			return nil, fmt.Errorf("error reading block: %v", err)
 		}
+		stop = raw[end : end+stopMarkerLength]
+		if err := c.readStopMarker(stop); err != nil {
+			return nil, err
+		}
+
+		// check for record from Spectrum with early ROM
+		if c.client == client.IF1 {
+			// If we're seeing FORMAT fill bytes in the stop marker, this is a
+			// long record.
+			if stop[0] == 0x3f && stop[1] == 0xf3 &&
+				stop[2] == 0x3f && stop[3] == 0xf3 {
+				if err := c.receive(
+					raw[end+stopMarkerLength : end+if1.FormatExtraBytes]); err != nil {
+					return nil, fmt.Errorf("error record extra data: %v", err)
+				}
+				end += if1.FormatExtraBytes
+				stop = raw[end : end+stopMarkerLength]
+				if err := c.readStopMarker(stop); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		raw = raw[:end]
 	}
 
-	stop := make([]byte, 4)
-	if err := c.receive(stop); err != nil {
-		return nil, fmt.Errorf("error reading block stop: %v", err)
-	}
+	shift := stop[len(stop)-1]
+	log.Tracef("stop shift: %d", shift)
 
-	shift := stop[3]
-
-	if shift > 3 {
+	if int(shift) > len(stop)-1 {
 		return nil, fmt.Errorf(
 			"corrupted block, excessive stop shift '%d'", shift)
 	} else if shift > 0 {
@@ -226,6 +252,14 @@ func (c *conduit) receiveBlock() ([]byte, error) {
 	}
 
 	return raw, nil
+}
+
+//
+func (c *conduit) readStopMarker(s []byte) error {
+	if err := c.receive(s); err != nil {
+		return fmt.Errorf("error reading block stop: %v", err)
+	}
+	return nil
 }
 
 //

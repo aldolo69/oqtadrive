@@ -76,7 +76,8 @@ const int HEADER_LENGTH_IF1 = 27;
 const int RECORD_LENGTH_IF1 = 540;
 const int HEADER_LENGTH_QL  = 28;
 const int RECORD_LENGTH_QL  = 538;
-const int RECORD_EXTRA_QL   = 86; // during format, QL sends longer records
+const int RECORD_EXTRA_IF1  = 99; // during format, Spectrums with earlier ROMs
+const int RECORD_EXTRA_QL   = 86; // and QLs send longer records
 
 uint16_t headerLengthMux;
 uint16_t recordLengthMux;
@@ -123,7 +124,7 @@ TimerHandler timerHandler = NULL;
 // --- sector buffer ----------------------------------------------------------
 const uint16_t BUF_LENGTH = 10 +
 	max(HEADER_LENGTH_IF1, HEADER_LENGTH_QL) +
-	max(RECORD_LENGTH_IF1, RECORD_LENGTH_QL + RECORD_EXTRA_QL);
+	max(RECORD_LENGTH_IF1 + RECORD_EXTRA_IF1, RECORD_LENGTH_QL + RECORD_EXTRA_QL);
 uint8_t buffer[BUF_LENGTH];
 
 // --- message buffer ---------------------------------------------------------

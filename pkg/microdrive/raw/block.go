@@ -46,6 +46,11 @@ func typeMismatch(key, typ string) error {
 }
 
 //
+func (b *Block) Length() int {
+	return len(b.Data)
+}
+
+//
 func (b *Block) GetByte(key string) byte {
 	if ix, ok := b.index[key]; ok {
 		if 0 <= ix[0] && ix[0] < len(b.Data) && ix[1] == 1 {

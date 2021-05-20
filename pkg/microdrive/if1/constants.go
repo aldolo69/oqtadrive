@@ -25,6 +25,7 @@ const HeaderLength = 27
 const HeaderLengthMux = HeaderLength + 1
 const RecordLength = 540
 const RecordLengthMux = RecordLength + 1
+const FormatExtraBytes = 99
 
 //
 const RecordFlagsUsed = 0x06
