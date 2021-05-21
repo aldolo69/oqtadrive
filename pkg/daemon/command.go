@@ -29,11 +29,12 @@ import (
 
 //
 const CmdHello = 'h'     // hello (send/receive to/from IF1/QL)
+const CmdVersion = 'v'   // protocol version (send/receive to/from IF1/QL)
 const CmdPing = 'P'      // ping/pong (send/receive to/from IF1/QL)
 const CmdStatus = 's'    // get drive state (send to IF1/QL)
 const CmdGet = 'g'       // get sector (send to IF1/QL)
 const CmdPut = 'p'       // put sector (receive from IF1/QL)
-const CmdVerify = 'v'    // verify sector bytes sent for previous get
+const CmdVerify = 'y'    // verify sector bytes sent for previous get
 const CmdTimeStart = 't' // start stop watch
 const CmdTimeEnd = 'q'   // stop stop watch
 const CmdDebug = 'd'     // debug message (receive from IF1/QL)

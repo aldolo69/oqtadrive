@@ -146,13 +146,16 @@ volatile bool calibration = false; // use the define setting at top to turn on!
 volatile bool synced      = false;
 
 // --- daemon commands --------------------------------------------------------
-const char CMD_HELLO  = 'h';
-const char CMD_PING   = 'P';
-const char CMD_STATUS = 's';
-const char CMD_GET    = 'g';
-const char CMD_PUT    = 'p';
-const char CMD_VERIFY = 'v';
-const char CMD_DEBUG  = 'd';
+const uint8_t PROTOCOL_VERSION = 1;
+
+const char CMD_HELLO   = 'h';
+const char CMD_VERSION = 'v';
+const char CMD_PING    = 'P';
+const char CMD_STATUS  = 's';
+const char CMD_GET     = 'g';
+const char CMD_PUT     = 'p';
+const char CMD_VERIFY  = 'y';
+const char CMD_DEBUG   = 'd';
 
 const uint8_t  CMD_LENGTH = 4;
 const uint16_t PAYLOAD_LENGTH = BUF_LENGTH - CMD_LENGTH;
@@ -812,6 +815,7 @@ void daemonSync() {
 	while (true) {
 		daemonCmd(IF1 ? IF1_HELLO : QL_HELLO);
 		if (daemonRcvAck(10, 100, DAEMON_HELLO)) {
+			daemonCmdArgs(CMD_VERSION, PROTOCOL_VERSION, 0, 0, 0);
 			lastPing = millis();
 			synced = true;
 			return;

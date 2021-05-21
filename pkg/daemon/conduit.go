@@ -36,6 +36,9 @@ import (
 )
 
 //
+const MinProtocolVersion = 1
+const MaxProtocolVersion = 1
+
 const commandLength = 4
 const sendBufferLength = 1024
 const receiveBufferLength = 1024
@@ -116,11 +119,26 @@ func (c *conduit) syncOnHello() error {
 		log.Debugf("discarding command: %v", cmd.data)
 	}
 
+	log.WithField("adapter", c.client).Info("received hello")
+
 	if err := c.send(helloDaemon); err != nil {
 		return fmt.Errorf("error sending daemon hello: %v", err)
 	}
 
-	log.Infof("synced with %s", c.client)
+	if cmd, err = c.receiveCommand(); err != nil {
+		return fmt.Errorf("error receiving protocol version: %v", err)
+	}
+
+	if cmd.cmd() != CmdVersion {
+		return fmt.Errorf("adapter did not send protocol version: %v", cmd)
+	}
+
+	proto := cmd.arg(0)
+	if proto < MinProtocolVersion || proto > MaxProtocolVersion {
+		return fmt.Errorf("unsupported protocol version: %d", proto)
+	}
+
+	log.WithField("protocol version", proto).Info("synced")
 	return nil
 }
 
