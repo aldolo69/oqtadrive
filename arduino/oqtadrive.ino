@@ -184,9 +184,6 @@ void setup() {
 	// of the adapter in the daisy chain, the pull-up resistor would feed into
 	// that drive's COMMS_CLK output and confuse it.
 	pinMode(PIN_COMMS_IN, INPUT);
-	//
-	pinMode(PIN_WR_PROTECT, OUTPUT);
-	digitalWrite(PIN_WR_PROTECT, HIGH);
 
 	// LEDs
 	pinMode(PIN_LED_WRITE, OUTPUT);
@@ -389,11 +386,23 @@ void setTracksToReplay() {
 	PORTC = 0x3f; // idle level is HIGH
 }
 
+//
+void setWriteProtect(bool protect) {
+	pinMode(PIN_WR_PROTECT, OUTPUT);
+	digitalWrite(PIN_WR_PROTECT, protect ? LOW : HIGH);
+}
+
+//
+void disableWriteProtectOutput() {
+	pinMode(PIN_WR_PROTECT, INPUT_PULLUP);
+}
+
 // ---------------------------------------------------------- DRIVE CONTROL ---
 
 void driveOff() {
 	stopTimer();
 	setTracksToRecord();
+	disableWriteProtectOutput();
 	ledWrite(IDLE);
 	ledRead(IDLE);
 	spinning = false;
@@ -459,7 +468,8 @@ void selectDrive() {
 	// A drive offset of 0xff means we don't know yet, and that also means
 	// none of the virtual drives can possibly have been selected.
 	if (driveOffset != 0xff) {
-		for (uint8_t reg = commsRegister << driveOffset; reg > 0; reg >>= 1) {
+		for (uint8_t reg = IF1 ? commsRegister : commsRegister << driveOffset;
+		 	reg > 0; reg >>= 1) {
 			activeDrive++;
 		}
 	}
@@ -475,6 +485,10 @@ void selectDrive() {
 	debugMsg('D', 'R', activeDrive);
 	debugFlush();
 
+	if (IF1 && (activeDrive <= driveOffset)) {
+		activeDrive = 0;
+	}
+
 	if (activeDrive == 0) {
 		driveOff();
 	} else {
@@ -483,8 +497,8 @@ void selectDrive() {
 }
 
 /*
-	Retrieve the drive state from the daemon, if it is still unknown. Otherwise,
-	cached value is returned.
+	Retrieve the drive state from the daemon, if it is still unknown.
+	Otherwise, cached value is used.
  */
 void ensureDriveState() {
 
@@ -502,6 +516,7 @@ void ensureDriveState() {
 		for (int r = 0; r < 400; r++) {
 			if (Serial.available() > 0) {
 				driveState = Serial.read();
+				setWriteProtect(!isDriveWritable());
 				return;
 			}
 			delay(5);
@@ -520,7 +535,7 @@ bool isDriveReadable() {
 
 //
 bool isDriveWritable() {
-	return isDriveReadable() && ((driveState & DRIVE_FLAG_READONLY) == 0);
+	return (driveState & DRIVE_FLAG_READONLY) == 0;
 }
 
 // -------------------------------------------------------------- RECORDING ---
