@@ -205,7 +205,7 @@ func (d *Daemon) SetCartridge(ix int, c base.Cartridge, force bool) error {
 
 	d.setCartridge(ix, c)
 
-	if c == nil {
+	if c == nil || !c.IsFormatted() {
 		if err := helper.AutoRemove(ix); err != nil {
 			log.Errorf("removing auto-save file for drive %d failed: %v", ix, err)
 		}
