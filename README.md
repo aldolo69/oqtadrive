@@ -15,8 +15,19 @@
 
 Here's a short [demo video](https://www.babbletower.net/forums/spectrum/microdrive/oqtadrive-demo.mp4) showing *OqtaDrive* & a *Spectrum* in action, doing a *Microdrive* test with the original *Sinclair* demo cartridge image, and a cartridge format.
 
+## Warning & Disclaimer
+If you want to build *OqtaDrive* yourself, please carefully read the hardware section below! It contains important instructions & notes. Not following these may break your vintage machine and/or the *Nano*! However, bear in mind that all the information in this project is published in good faith and for general information purpose only. I do not make any warranties about the completeness, reliability, and accuracy of this information. Any action you take upon the information you find here, is strictly at your own risk. I will not be liable for any losses and/or damages in connection with the use of *OqtaDrive*. 
+
 ## Status
 *OqtaDrive* is currently in *alpha* stage, and under active development. Things may still get reworked quite considerably, which may introduce breaking changes.
+
+### Caveats & Current Limitations
+
+- Drive offset detection is only available for the *QL*, but may not always work reliably. It's possible to set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. I haven't tried yet to bypass the internal drives on a *QL*, so I'd love to hear how that goes. For the *Spectrum* the offset defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that. 
+
+    **Important**: The adapter works when daisy-chained behind real *Microdrives*. However, currently there seems to be some sort of conflict when using a real *Microdrive* while the adapter is connected. Until this has been fully analyzed, I recommend not using your real *Microdrive*s as long as the adapter is still connected.
+
+- I haven't done a lot of testing yet.
 
 ## Motivation
 Why another *Microdrive* emulator? There are a few options out there already, but as far as I could see those are stand-alone solutions that use some form of media, usually an SD card to store the cartridges. So for one thing you have to go back and forth between the drive and your PC to upload new cartridge images or make backup copies. Additionally, almost by definition these standalone drives provide only a limited user interface for managing cartridges or require some form of control software running on the *Spectrum* or *QL* to do that. Still, they are great solutions, in particular if you want an authentic setup with no modern machines nearby.
@@ -28,9 +39,43 @@ My use case is different though. Whenever I use my *Spectrum* or *QL*, it's in c
 ### Circuit
 ![OqtaDrive](doc/schematic.png)
 
-The circuit is straightforward. You only need to connect a few of the *Nano*'s GPIO pins to an edge connector plug, program `arduino/oqtadrive.ino` onto the board, and you're all set. Just keep the lines between the board and the plug as short as possible, to avoid interference. For the prototypes I built, I used ribbon cable no longer than 5 cm, which works well. It may also be advisable to place resistors in series into the data lines (`DATA1` and `DATA2`), around 2.2kOhm. This would limit the current that can flow should there ever be bus contention due to the adapter misbehaving. So if you really want to make sure there's no risk of damaging your vintage machine, use the resistors! I haven't tried this myself, so feedback would be welcome.
+The circuit is straightforward. You only need to connect a few of the *Nano*'s GPIO pins to an edge connector plug, program `arduino/oqtadrive.ino` onto the board, and you're all set. Here are a few things to consider though, when building the adapter:
 
-You may also connect two LEDs for indicating read & write activity to pins `D12` and `D11`, respectively (don't forget resistors). By default, the LEDs are on during idle and start blinking during activity. If you want them to be off during idle, set `LED_RW_IDLE_ON` to `false` in `oqtadrive.ino`. When designing a case for the adapter that should work with *Spectrum* and *QL*, keep in mind that on the *QL*, the edge connector is on the right hand side of the unit, while it is on the left for the *Interface 1*.
+- The notch in the edge connector counts as pins 3A/3B.
+
+- Keep the lines between the board and the plug as short as possible, to avoid interference. For the prototypes I built, I used ribbon cable no longer than 5 cm, which works well.
+
+- The resistors in the data lines (`DATA1` & `DATA2`) and `WR.PROTECT` are not strictly required, the original *Microdrives* don't have them. I still recommend using them, since they will limit the current that can flow should there ever be a conflict between these outputs and the *Interface 1*, *QL*, or other *Microdrives*. So to minimize the risk of damaging your vintage machine, use the resistors!
+
+- Connecting the 9V to `Vin` on the *Nano* is also not strictly required, but recommended. Without this, the *Nano* is only powered when connected to USB. If it's disconnected and the *Spectrum* or *QL* is powered on, current will be injected into the *Nano* via its GPIO pins. This may be outside the spec of the micro-controller on the *Nano*. All my prototypes don't connect the 9V though, and there hasn't been any damage so far. But again, to be on the safe side, connect it, but don't skip the diode in that case! Any 1A diode such as a 1N4002 will do.
+
+- You may also connect two LEDs for indicating read & write activity to pins `D12` and `D11`, respectively (don't forget resistors). By default, the LEDs are on during idle and start blinking during activity. If you want them to be off during idle, set `LED_RW_IDLE_ON` to `false` in `oqtadrive.ino`.
+
+- When designing a case for the adapter that should work with *Spectrum* and *QL*, keep in mind that on the *QL*, the edge connector is on the right hand side of the unit, while it is on the left for the *Interface 1*.
+
+### Differences in Pin-Outs
+The pin-outs of the *Interface 1* and *QL* edge connectors are identical, so you can use the adapter with both. **Note however that the outgoing connector of a *Spectrum Microdrive* unit is different!** It is in fact upside down. That's why the cable for connecting a *Microdrive* unit to the *Interface 1* cannot be used to connect (i.e. daisy chain) two *Microdrive* units. If you want to use the adapter behind a *Microdrive* unit, you either need to wire it accordingly, or use an appropriate plug converter. Whichever you choose, fabricate it in a way that makes it mechanically impossible to accidentally plug it into an *Interface 1* or *QL*. **There will be damage otherwise!**
+
+This table shows the respective pin-outs:
+
+| Pin | *Interface 1*, *QL* | *Microdrive* unit |
+|-----|---------------------|-------------------|
+| 1A  | `DATA1`             | `DATA2`           |
+| 1B  | `DATA2`             | `DATA1`           |
+| 2A  | `COMM CLK`          | `WR.PROTECT`      |
+| 2B  | `WR.PROTECT`        | `COMM CLK`        |
+| 3A  | (notch)             | (notch)           |
+| 3B  | (notch)             | (notch)           |
+| 4A  | `COMM`              | 9V                |
+| 4B  | 9V                  | `COMM`            |
+| 5A  | `/ERASE`            | `R/WR`            |
+| 5B  | `R/WR`              | `/ERASE`          |
+| 6A  | GND                 | GND               |
+| 6B  | GND                 | GND               |
+| 7A  | GND                 | GND               |
+| 7B  | GND                 | GND               |
+| 8A  | GND                 | GND               |
+| 8B  | GND                 | GND               |
 
 ### Configuration
 The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the top of `oqtadrive.ino`. There are a few more settings that can be changed, but there shouldn't really be a need to do that.
@@ -68,12 +113,6 @@ The daemon also serves an HTTP control API on port `8888` (can be changed with `
 - list cartridge content: `oqtactl ls -d {drive}` or `oqtactl ls -i {file}`
 
 `load` & `save` currently support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises. If you have [*Z80onMDR*](https://www.tomdalby.com/other/z80onmdr.html) installed on your system and added to `PATH`, `load` can load *Spectrum Z80* snapshot files into the daemon, converting them to *MDR* on the fly by calling *Z80onMDR*.
-
-## Caveats & Current Limitations
-
-- Drive offset detection is only available for the *QL*, but may not always work reliably. It's possible to set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. I haven't tried yet to bypass the internal drives on a *QL*, so I'd love to hear how that goes. For the *Spectrum* the offset defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that. 
-
-- I haven't done a lot of testing yet.
 
 ## Building
 On *Linux* you can use the `Makefile` to build `oqtactl`, the *OqtaDrive* binary. Note that for consistency, building is done inside a *Golang* build container, so you will need *Docker* to build, but no other dependencies. Just run `make build`. You can also cross-compile for *MacOS* and *Windows*. Run `CROSS=y make build` in that case. If you want to build on *MacOS* or *Windows* directly, you would have to install the *Golang* SDK there and run the proper `go build` command manually. 
