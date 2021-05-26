@@ -1,9 +1,25 @@
 # Change Log
 
+## 0.1.2
+This release contains important bug fixes, so upgrading to this is strongly recommended. It requires re-flashing the adapter. The circuit also has small but important changes.
+
+### Adapter
+- circuit update: resistor + diode in `WR.PROTECT` line, diode in `/ERASE` line, 9V to `Vin` via 1A diode
+- fixed `WR.PROTECT` output pin control (this potentially put the *Nano* at risk)
+
+### Daemon
+- auto-save cartridges in daemon
+- support `FORMAT` for *Spectrums* with early ROMs (*Issue 3* and older)
+- versioning of serial protocol
+- reject loading of corrupted cartridges; added repair flag to `load` action
+- offer renaming of `.Z80` files to `.z80` during load on Linux (`.Z80` suffix is not accepted by *Z80onMDR* under Linux)
+- added status API
+- doc updates & corrections
+
 ## 0.1.1
 
 ### Adapter
-This release does not require reflashing the adapter. There were no changes to the firmware.
+This release does not require re-flashing the adapter. There were no changes to the firmware.
 
 ### Daemon
 - Support *Spectrum Z80* snapshot files via [*Z80onMDR*](https://www.tomdalby.com/other/z80onmdr.html). You can now directly load *Z80* snapshot files into the daemon. They get converted to *MDR* on the fly by calling *Z80onMDR*. This requires *Z80onMDR* to be installed on your system and set in `PATH`.

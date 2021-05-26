@@ -25,7 +25,7 @@ If you want to build *OqtaDrive* yourself, please carefully read the hardware se
 
 - Drive offset detection is only available for the *QL*, but may not always work reliably. It's possible to set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. I haven't tried yet to bypass the internal drives on a *QL*, so I'd love to hear how that goes. For the *Spectrum* the offset defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that. 
 
-    **Important**: The adapter works when daisy-chained behind real *Microdrives*. However, currently there seems to be some sort of conflict when using a real *Microdrive* while the adapter is connected. Until this has been fully analyzed, I recommend not using your real *Microdrive*s as long as the adapter is still connected.
+- When running more than one daemon under the same user, they will use the same auto-save directory and hence mutually overwrite auto-save states. If you need to run several instances, run them with different users. A better solution will be provided in the future.
 
 - I haven't done a lot of testing yet.
 
@@ -45,9 +45,9 @@ The circuit is straightforward. You only need to connect a few of the *Nano*'s G
 
 - Keep the lines between the board and the plug as short as possible, to avoid interference. For the prototypes I built, I used ribbon cable no longer than 5 cm, which works well.
 
-- The resistors in the data lines (`DATA1` & `DATA2`) and `WR.PROTECT` are not strictly required, the original *Microdrives* don't have them. I still recommend using them, since they will limit the current that can flow should there ever be a conflict between these outputs and the *Interface 1*, *QL*, or other *Microdrives*. So to minimize the risk of damaging your vintage machine, use the resistors!
+- The resistors in the data lines (`DATA1` & `DATA2`) and `WR.PROTECT` are not strictly required, the original *Microdrives* don't have them. I still recommend using them, since they will limit the current that can flow should there ever be a conflict between these outputs and the *Interface 1*, *QL*, or other *Microdrives*.
 
-- The switching diodes (1N4148 or similar) in the `WR.PROTECT` and `/ERASE` lines are strictly required when using the adapter together with actual *Microdrives*. It protects the according inputs `D6` and `D5` on the *Nano* from over-voltage coming from the drives, and prevents `D5` from activating the erase head in an actual *Microdrive* unit when it is running.
+- The switching diodes (1N4148 or similar) in the `WR.PROTECT` and `/ERASE` lines are strictly required when using the adapter together with actual *Microdrives*. It protects the according GPIOs `D6` and `D5` on the *Nano* from over-voltage coming from the drives, and prevents `D5` from activating the erase head in an actual *Microdrive* unit when it is running.
 
 - Connecting the 9V to `Vin` on the *Nano* is while not strictly required, still recommended. Without this, the *Nano* is only powered when connected to USB. If it's disconnected and the *Spectrum* or *QL* is powered on, current will be injected into the *Nano* via its GPIO pins. This may be outside the spec of the micro-controller on the *Nano*. So to be on the safe side, connect it, but don't skip the diode in that case! Any 1A diode such as a 1N4002 will do.
 
@@ -55,10 +55,12 @@ The circuit is straightforward. You only need to connect a few of the *Nano*'s G
 
 - When designing a case for the adapter that should work with *Spectrum* and *QL*, keep in mind that on the *QL*, the edge connector is on the right hand side of the unit, while it is on the left for the *Interface 1*.
 
+**My overall recommendation: Build the adapter as shown in the schematic above to minimize the risk of damaging your vintage machine!**
+
 ### Differences in Pin-Outs
 The pin-outs of the *Interface 1* and *QL* edge connectors are identical, so you can use the adapter with both. **Note however that the outgoing connector of a *Spectrum Microdrive* unit is different!** It is in fact upside down. That's why the cable for connecting a *Microdrive* unit to the *Interface 1* cannot be used to connect (i.e. daisy chain) two *Microdrive* units. If you want to use the adapter behind a *Microdrive* unit, you either need to wire it accordingly, or use an appropriate plug converter. Whichever you choose, fabricate it in a way that makes it mechanically impossible to accidentally plug it into an *Interface 1* or *QL*. **There will be damage otherwise!**
 
-This table shows the respective pin-outs:
+This table shows the respective pin-outs (A = component side, B = solder side):
 
 | Pin | *Interface 1*, *QL* | *Microdrive* unit |
 |-----|---------------------|-------------------|
@@ -85,7 +87,7 @@ The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But 
 *Hint*: After turning on the *Spectrum*, the adapter sometimes erroneously detects the *Interface 1* as a *QL*. In that case, run `CAT 1` on the *Spectrum* and reset the adapter afterwards. That should fix the problem.
 
 ### Using a Different *Arduino* Board
-I haven't tried this out on anything other than a *Nano*. It may work on other *Arduino* boards, but only if they use the same micro-controller running at the same clock speed. There are timing-sensitive sections in the code that would otherwise require tweaking. Also, stick to the GPIO pin assignments, the code relies on this.
+I haven't tried this out on anything other than a *Nano* (or compatible) board. It may work on other *Arduino* boards, but only if they use the same micro-controller running at the same clock speed. There are timing-sensitive sections in the code that would otherwise require tweaking. Also, stick to the GPIO pin assignments, the code relies on this.
 
 ## Running
 There's a single binary `oqtactl`, that takes care of everything that needs to be done on the PC side. This can run the daemon as well as several control actions. Just run `oqtactl -h` to get a list of the available actions, and `oqtactl {action} -h` for finding out more about a particular action. There are cross-compiled binaries for *MacOS* and *Windows* in the *release* section of this project for every release. However, I don't know whether they actually work, so feedback is welcome.
@@ -94,7 +96,7 @@ There's a single binary `oqtactl`, that takes care of everything that needs to b
 Start the daemon with `oqtactl serve -d {serial device}`. It will look for the adapter at the specified serial port, and keep retrying if it's not yet present. You can also dis- and re-connect the adapter. The daemon should re-sync after a few seconds.
 
 #### Cartridge Auto-Save
-When a cartridge gets modified it is auto-saved as soon as the drive in which it is located stops. It is also auto-saved when it is initially loaded into the drive. Whenever the daemon is restarted, the previously loaded cartridges are automatically reloaded from auto-saved state and are immediately available for use. Keep in mind however that auto-save does not write back to the file from which a cartridge was originally loaded. This is because the daemon is not aware of that location, and would possibly not even be able to reach it (you can load cartridges via network). Auto-saved states are instead located in `.oqtadrive` within the home directory of the user running the daemon (exact location depends on used OS). It is up to the user to decide whether and where a modified cartridge should be saved (see `save` action below).
+When a cartridge gets modified it is auto-saved as soon as the virtual drive in which it is located stops. It is also auto-saved when it is initially loaded into the drive. Whenever the daemon is restarted, the previously loaded cartridges are automatically reloaded from auto-saved state and are immediately available for use. Keep in mind however that auto-save does not write back to the file from which a cartridge was originally loaded. This is because the daemon is not aware of that location, and would possibly not even be able to reach it (you can load cartridges via network). Auto-saved states are instead located in `.oqtadrive` within the home directory of the user running the daemon (exact location depends on used OS). It is up to the user to decide whether and where a modified cartridge should be saved (see `save` action below).
 
 #### Logging
 Daemon logging behavior can be changed with these environment variables:
