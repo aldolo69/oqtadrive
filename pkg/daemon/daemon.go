@@ -264,3 +264,21 @@ func (d *Daemon) getCartridge(ix int) base.Cartridge {
 	}
 	return nil
 }
+
+//
+func (d *Daemon) MapHardwareDrives(start, end int) error {
+
+	if start < 0 || start > DriveCount {
+		return fmt.Errorf("illegal start index for h/w drive: %d", start)
+	}
+	if end < 0 || end > DriveCount || end < start {
+		return fmt.Errorf("illegal end index for h/w drive: %d", end)
+	}
+	if (start > 0 && end == 0) || (end > 0 && start == 0) {
+		return fmt.Errorf(
+			"either both h/w drive indexes are 0 or none: start = %d, end = %d",
+			start, end)
+	}
+
+	return d.conduit.send([]byte{CmdMap, byte(start), byte(end), 0})
+}

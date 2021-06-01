@@ -117,6 +117,7 @@ func (l *Load) trapZ80() (bool, error) {
 		return false, nil
 	}
 
+	// TODO: check version of Z80onMDR and ask only for v1.9a and older, or remove completely
 	if runtime.GOOS == "linux" && ext == "Z80" {
 		if GetUserConfirmation(
 			"Z80onMDR under Linux doesn't accept uppercase '.Z80' extension. Rename to '*.z80'?") {

@@ -112,6 +112,7 @@ function apply_shell_expansion {
 # $1    command
 # $2    target OS
 # $3    target architecture; omit for `amd64`
+# $4    `keep` for keeping the binary, not just the archive; requires $3
 #
 function build_binary {
 
@@ -121,9 +122,9 @@ function build_binary {
     local suffix
     [[ "$2" != "windows" ]] || suffix=".exe"
 
-    local binary="${BINARIES}/$1_${OQTADRIVE_RELEASE}_$2_${arch}${suffix}"
+    local binary="${BINARIES}/$1"
 
-    echo -e "\nbuilding ${binary}"
+    echo -e "\nbuilding ${binary} for $2/${arch}"
 
     # shellcheck disable=SC2086
     docker run --rm --user "$(id -u):$(id -g)" \
@@ -134,7 +135,14 @@ function build_binary {
         -ldflags "-w -X main.OqtaDriveVersion=${OQTADRIVE_VERSION}" \
         -o "${binary}" "./cmd/$1/"
 
-    zip -j "../${binary}.zip" "../${binary}"
+    local specifier="_${OQTADRIVE_RELEASE}_$2_${arch}${suffix}"
+    zip -j "../${binary}${specifier}.zip" "../${binary}"
+
+    if [[ "$4" == "keep" ]]; then
+    	mv "../${binary}" "../${binary}${specifier}"
+    else
+    	rm -f "../${binary}"
+    fi
 }
 
 #

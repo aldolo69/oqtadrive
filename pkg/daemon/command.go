@@ -37,6 +37,7 @@ const CmdPut = 'p'       // put sector (receive from IF1/QL)
 const CmdVerify = 'y'    // verify sector bytes sent for previous get
 const CmdTimeStart = 't' // start stop watch
 const CmdTimeEnd = 'q'   // stop stop watch
+const CmdMap = 'm'       // h/w drive mapping (receive from IF1/QL)
 const CmdDebug = 'd'     // debug message (receive from IF1/QL)
 
 var ping = []byte("Ping")

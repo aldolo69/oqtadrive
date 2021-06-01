@@ -80,6 +80,9 @@ func main() {
 	case "dump":
 		run.DieOnError(run.NewDump().Execute(args))
 
+	case "map":
+		run.DieOnError(run.NewMap().Execute(args))
+
 	case "version":
 		version()
 

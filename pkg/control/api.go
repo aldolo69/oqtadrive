@@ -64,6 +64,7 @@ func (a *api) Serve() error {
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
 	addRoute(router, "save", "GET", "/drive/{drive:[1-8]}", a.save)
 	addRoute(router, "dump", "GET", "/drive/{drive:[1-8]}/dump", a.dump)
+	addRoute(router, "map", "PUT", "/map", a.driveMap)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
 
 	addr := fmt.Sprintf(":%d", a.port)
@@ -297,6 +298,29 @@ func (a *api) driveInfo(w http.ResponseWriter, req *http.Request, info string) {
 	}()
 
 	sendStreamReply(read, http.StatusOK, w)
+}
+
+//
+func (a *api) driveMap(w http.ResponseWriter, req *http.Request) {
+
+	start, err := strconv.Atoi(getArg(req, "start"))
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	end, err := strconv.Atoi(getArg(req, "end"))
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	if handleError(a.daemon.MapHardwareDrives(start, end),
+		http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	sendReply([]byte(fmt.Sprintf(
+		"mapped hardware drives: start=%d, end=%d", start, end)),
+		http.StatusOK, w)
 }
 
 //

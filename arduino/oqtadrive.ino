@@ -20,6 +20,54 @@
     along with OqtaDrive. If not, see <http://www.gnu.org/licenses/>.
 */
 
+
+// ----------------------------------------------------------------- CONFIG ---
+//  This section contains all configuration items. Do not change anything below
+//  this section unless you know what you're doing!
+
+//  Set here whether read & write LEDs should be on when idling.
+#define LED_RW_IDLE_ON true
+
+/*
+    Automatic offset check only works for QL. If you're using OqtaDrive with an
+    actual Microdrive between IF1 and the adapter, you can set a fixed offset
+    here. Likewise for the QL, if the automatic check doesn't work reliably.
+    The offset denotes how many actual Microdrives are present between the
+    Microdrive interface and the adapter. So an offset of 0 means the adapter is
+    directly connected to the IF1 or internal Microdrive interface on the QL,
+    bypassing the two built-in drives. Max accepted value is 7. Keep at -1 to
+    use automatic offset check.
+ */
+#define DRIVE_OFFSET_IF1  0
+#define DRIVE_OFFSET_QL  -1
+
+/*
+    If you want to map hardware drives, i.e. move them to different slots within
+    the daisy chain, you need to chain them behind the OqtaDrive adapter. This
+    requires routing the COMMS_OUT signal from the adapter to the COMMS_IN of
+    the first hardware drive. See the documentation for more details.
+
+    Once you have set up OqtaDrive in this way, you can define here to which
+    slots the drives are mapped after the adapter starts up. During operation
+    you can then control the mapping via oqtactl. The hardware drives are always
+    mapped as a group. Setting start and end to 0 will deactivate the hardware
+    drives.
+
+    Note: Set offsets above to 0, since hardware drive mapping requires the
+    OqtaDrive adapter to be first in the chain.
+ */
+#define HW_GROUP_START 0
+#define HW_GROUP_END   0
+
+//  Use these settings to force either Interface 1 or QL, but not both! When
+//  left at false, automatic detection is used.
+#define FORCE_IF1 false
+#define FORCE_QL  false
+
+
+// ----------------------------------- END OF CONFIG - START OF DANGER ZONE ---
+
+
 /*
 	Implementation notes:
 	- _delay_us only takes compile time constants as argument
@@ -37,6 +85,7 @@
 //
 const int PIN_COMMS_CLK  = 2; // HIGH idle on IF1, LOW on QL; interrupt
 const int PIN_COMMS_IN   = 4;
+const int PIN_COMMS_OUT  = 7;
 const int PIN_ERASE      = 5; // LOW active
 const int PIN_READ_WRITE = 3; // READ is HIGH; interrupt
 const int PIN_WR_PROTECT = 6; // LOW active
@@ -50,6 +99,7 @@ const int PIN_TRACK_2 = A0;
 // --- pin masks --------------------------------------------------------------
 const uint8_t MASK_COMMS_CLK  = 1 << PIN_COMMS_CLK;
 const uint8_t MASK_COMMS_IN   = 1 << PIN_COMMS_IN;
+const uint8_t MASK_COMMS_OUT  = 1 << PIN_COMMS_OUT;
 const uint8_t MASK_ERASE      = 1 << PIN_ERASE;
 const uint8_t MASK_READ_WRITE = 1 << PIN_READ_WRITE;
 const uint8_t MASK_WR_PROTECT = 1 << PIN_WR_PROTECT;
@@ -65,8 +115,6 @@ const uint8_t MASK_LED_READ   = B00010000;
 // --- LED behavior -----------------------------------------------------------
 const bool ACTIVE = true;
 const bool IDLE   = false;
-// whether read & write LEDs should be on or off during inactivity
-const bool LED_RW_IDLE_ON = true;
 
 uint8_t blinkCount = 0;
 
@@ -93,17 +141,9 @@ volatile uint8_t commsRegister = 0;
 volatile uint8_t commsClkCount = 0;
 volatile uint8_t activeDrive   = 0;
 volatile uint8_t driveOffset   = 0xff;
-
-// Automatic offset check only works for QL. If you're using OqtaDrive with an
-// actual Microdrive between IF1 and the adapter, you can set a fixed offset
-// here. Likewise for the QL, if the automatic check doesn't work reliably.
-// The offset denotes how many actual Microdrives are present between the
-// Microdrive interface and the adapter. So an offset of 0 means the adapter is
-// directly connected to the IF1 or internal Microdrive interface on the QL,
-// bypassing the two built-in drives. Max accepted value is 7. Keep at -1 to use
-// automatic offset check.
-const int DRIVE_OFFSET_IF1 = 0;
-const int DRIVE_OFFSET_QL  = -1;
+volatile uint8_t hwGroupStart = HW_GROUP_START;
+volatile uint8_t hwGroupEnd = HW_GROUP_END;
+volatile uint8_t maskHwOffset = 0;
 
 bool commsClkState;
 
@@ -131,9 +171,6 @@ uint8_t buffer[BUF_LENGTH];
 uint8_t msgBuffer[4];
 
 // --- Microdrive interface type - Interface 1 or QL --------------------------
-const bool FORCE_IF1 = false;
-const bool FORCE_QL  = false;
-
 bool IF1 = true;
 #define QL !IF1
 
@@ -155,6 +192,7 @@ const char CMD_STATUS  = 's';
 const char CMD_GET     = 'g';
 const char CMD_PUT     = 'p';
 const char CMD_VERIFY  = 'y';
+const char CMD_MAP     = 'm';
 const char CMD_DEBUG   = 'd';
 
 const uint8_t  CMD_LENGTH = 4;
@@ -178,6 +216,10 @@ void setup() {
 
 	deactivateSignals();
 
+	// FIXME: does this need deactivation?
+	pinMode(PIN_COMMS_OUT, OUTPUT);
+	digitalWrite(PIN_COMMS_OUT, LOW);
+
 	// LEDs
 	pinMode(PIN_LED_WRITE, OUTPUT);
 	pinMode(PIN_LED_READ, OUTPUT);
@@ -190,8 +232,7 @@ void setup() {
 	Serial.setTimeout(DAEMON_TIMEOUT);
 
 	// set up interrupts
-	attachInterrupt(digitalPinToInterrupt(PIN_COMMS_CLK), commsClk,
-		IF1 ? FALLING : RISING);
+	attachInterrupt(digitalPinToInterrupt(PIN_COMMS_CLK), commsClk, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(PIN_READ_WRITE), writeReq, FALLING);
 }
 
@@ -233,7 +274,7 @@ void loop() {
 
 		lastPing = millis();
 
-	} else {
+	} else if (daemonCheckCmd()) {
 		daemonPing();
 	}
 }
@@ -442,35 +483,55 @@ bool isCommsClk(uint8_t state) {
 }
 
 /*
-	Interrupt handler for handling the 1 bit being pushed through the
-	Microdrive daisy chain to select the active drive.
-
-	We need to add the next COMMS_IN bit on COMMS_CLK going active, i.e.
-	when logically rising. I assume that the h/w is doing this on falling
-	clock, but if we were to do this here with interrupt mechanism, we'd
-	be too late and	by the time we sample COMMS_IN, it already holds the
-	next bit.
+	Interrupt handler for handling the 1 bit being pushed through the shift
+	register formed by the up to eight actual Microdrives (daisy chain), to
+	select the active drive. If the OqtaDrive adapter is connected directly to
+	the Microdrive interface, commsRegister represents the complete shift
+	register. If there are actual Microdrives present before the adapter, then
+	commsRegister only represents the remainder of that shift register.
  */
 void commsClk() {
 
-	if (driveOffset == 0xff && (PIND & MASK_COMMS_IN) != 0) {
-		// When we see the 1 bit at COMMS_CLK going active, clock count is the
-		// drive offset, with an offset of 0 meaning first drive in chain.
-		driveOffset = IF1 ? DRIVE_OFFSET_IF1 : commsClkCount;
+	uint8_t d = PIND;
+	bool comms = (d & MASK_COMMS_IN) != 0;
+
+	if (hwGroupStart == 1) {
+		// immediately pass through COMMS when h/w drives are first in chain
+		PORTD = comms ? d | MASK_COMMS_OUT : d & ~MASK_COMMS_OUT;
 	}
 
-	stopTimer();
-	commsClkCount++;
-	commsRegister = commsRegister << 1;
-	commsRegister |= ((PIND & MASK_COMMS_IN) != 0 ? 1 : 0);
-	setTimer(TIMER_COMMS, selectDrive);
+	if (isCommsClk(d)) {
+		// When COMMS_CLK goes active, we increase the clock count, shift the
+		// register by one, and add current COMMS state at the start.
+		stopTimer();
+		commsClkCount++;
+		commsRegister = commsRegister << 1;
+		if (comms) {
+			commsRegister |= 1;
+		}
+
+	} else {
+		// COMMS_CLK going inactive triggers the shift register. If there are
+		// h/w drives present further down the chain, we therefore sent them
+		// the COMMS signal here, with the correct delay using commsRegister.
+		if (hwGroupStart > 1) {
+			PORTD = (commsRegister & maskHwOffset) != 0 ?
+				d | MASK_COMMS_OUT : d & ~MASK_COMMS_OUT;
+		}
+		setTimer(TIMER_COMMS, selectDrive);
+	}
+
+	if (QL && comms && (driveOffset == 0xff) && (commsClkCount < 8)) {
+		// When we see the 1 bit at COMMS_CLK going active, clock count is the
+		// drive offset, with an offset of 0 meaning first drive in chain.
+		driveOffset = commsClkCount;
+	}
 }
 
 /*
 	Called by timer when TIMER_COMMS expires. That is, if for a duration of
-	TIMER_COMMS, there has been no change on the COMMS_CLK line, which indicates
-	that the active drive has been selected, or all drives deselected, by
-	Interface 1/QL.
+	TIMER_COMMS, there has been no change on the COMMS_CLK line, then the active
+	drive has been selected, or all drives deselected, by Interface 1/QL.
  */
 void selectDrive() {
 
@@ -487,31 +548,35 @@ void selectDrive() {
 	// none of the virtual drives can possibly have been selected.
 	if (driveOffset != 0xff) {
 		for (uint8_t reg = IF1 ? commsRegister : commsRegister << driveOffset;
-		 	reg > 0; reg >>= 1) {
+			reg > 0; reg >>= 1) {
 			activeDrive++;
 		}
 	}
 
 	debugMsg('C', 'K', commsClkCount);
 	debugFlush();
-//	debugMsg('O', 'F', driveOffset);
-//	debugFlush();
-	debugMsg('R', 'l', lowByte(commsRegister));
+	debugMsg('C', 'R', commsRegister);
 	debugFlush();
-	debugMsg('R', 'h', highByte(commsRegister));
+	debugMsg('O', 'F', driveOffset);
 	debugFlush();
 	debugMsg('D', 'R', activeDrive);
 	debugFlush();
 
-	if (IF1 && (activeDrive <= driveOffset)) {
+	if (driveOffset != 0xff || commsClkCount > 7) {
+		// As soon as the drive offset has been determined, we can reset comms
+		// clock count each time a drive is selected. We can do this also if the
+		// count goes beyond the maximum offset (7), which happens when upon
+		// resetting the QL.
+		commsClkCount = 0;
+	}
+
+	// avoid turning on a virtual drive when a h/w drive has been selected
+	if (activeDrive <= driveOffset
+		|| (hwGroupStart <= activeDrive && activeDrive <= hwGroupEnd)) {
 		activeDrive = 0;
 	}
 
-	if (activeDrive == 0) {
-		driveOff();
-	} else {
-		driveOn();
-	}
+	activeDrive == 0 ? driveOff() : driveOn();
 }
 
 /*
@@ -573,8 +638,8 @@ void record() {
 			ledWriteFlip();
 		}
 
- 		// block stop marker; used by the daemon to get rid of spurious
- 		// extra bytes at the end of a block, often seen on the QL
+		// block stop marker; used by the daemon to get rid of spurious
+		// extra bytes at the end of a block, often seen on the QL
 		if (read > 0) {
 			daemonCmdArgs(3, 2, 1, 0, 0);
 		}
@@ -626,7 +691,7 @@ void record() {
  */
 uint16_t receiveBlock() {
 
- 	noInterrupts();
+	noInterrupts();
 
 	register uint8_t start = PINC & MASK_BOTH_TRACKS, end, bitCount, d, w;
 	register uint16_t read = 0, ww;
@@ -857,6 +922,43 @@ void daemonSync() {
 }
 
 //
+bool daemonCheckCmd() {
+
+	if (Serial.available() == 0) {
+		return true;
+	}
+
+	if (daemonRcvCmd(10, 5)) {
+
+		switch (buffer[CMD_LENGTH]) {
+
+			case CMD_MAP:
+				uint8_t start = buffer[CMD_LENGTH + 1];
+				if (start < 0 || start > 8) {
+					break;
+				}
+				uint8_t end = buffer[CMD_LENGTH + 2];
+				if (end < 0 || end > 8 || end < start) {
+					break;
+				}
+				hwGroupStart = start;
+				hwGroupEnd = end;
+				maskHwOffset = 1 << (hwGroupStart - 2);
+				debugMsg('H', 's', start);
+				debugFlush();
+				debugMsg('H', 'e', end);
+				debugFlush();
+				break;
+		}
+
+		return true;
+	}
+
+	synced = false;
+	return false;
+}
+
+//
 void daemonPing() {
 	if (millis() - lastPing < PING_INTERVAL) {
 		return;
@@ -893,18 +995,24 @@ void daemonCmdArgs(uint8_t cmd, uint8_t arg1, uint8_t arg2, uint8_t arg3,
 
 //
 bool daemonRcvAck(uint8_t rounds, uint8_t wait, uint8_t exp[]) {
+	if (daemonRcvCmd(rounds, wait)) {
+		for (int ix = 0; ix < CMD_LENGTH; ix++) {
+			if (buffer[CMD_LENGTH + ix] != exp[ix]) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
 
+//
+bool daemonRcvCmd(uint8_t rounds, uint8_t wait) {
 	for (int r = 0; r < rounds; r++) {
 		if (Serial.available() < CMD_LENGTH) {
 			delay(wait);
-
 		} else {
 			daemonRcv(CMD_LENGTH);
-			for (int ix = 0; ix < CMD_LENGTH; ix++) {
-				if (buffer[CMD_LENGTH + ix] != exp[ix]) {
-					return false;
-				}
-			}
 			return true;
 		}
 	}

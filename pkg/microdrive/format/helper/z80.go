@@ -83,8 +83,8 @@ func runZ80onMDR(args ...string) error {
 
 	if _, err := exec.LookPath(bin); err != nil {
 		return fmt.Errorf(`
-You need to install Z80onMDR on your system and add it to PATH.
-To get Z80onMDR, visit https://www.tomdalby.com/other/z80onmdr.html`)
+You need to install Z80onMDR on your system and add it to PATH (binary: %s).
+To get Z80onMDR, visit https://www.tomdalby.com/other/z80onmdr.html`, bin)
 	}
 
 	fmt.Printf("\ninvoking: %s %v\n\n", bin, strings.Join(args, " "))
