@@ -176,22 +176,13 @@ unsigned long lastPing = 0;
 
 void setup() {
 
-	// control signals
-	pinMode(PIN_READ_WRITE, INPUT_PULLUP);
-	pinMode(PIN_ERASE, INPUT_PULLUP);
-	pinMode(PIN_COMMS_CLK, INPUT_PULLUP);
-	// This must not be set to INPUT_PULLUP. If there is a Microdrive upstream
-	// of the adapter in the daisy chain, the pull-up resistor would feed into
-	// that drive's COMMS_CLK output and confuse it.
-	pinMode(PIN_COMMS_IN, INPUT);
+	deactivateSignals();
 
 	// LEDs
 	pinMode(PIN_LED_WRITE, OUTPUT);
 	pinMode(PIN_LED_READ, OUTPUT);
 	ledRead(IDLE);
 	ledWrite(IDLE);
-
-	setTracksToRecord();
 
 	// open channel to daemon & say hello
 	detectInterface();
@@ -393,16 +384,41 @@ void setWriteProtect(bool protect) {
 }
 
 //
-void disableWriteProtectOutput() {
-	pinMode(PIN_WR_PROTECT, INPUT_PULLUP);
+void activateSignals() {
+	// control signals
+	pinMode(PIN_READ_WRITE, INPUT_PULLUP);
+	pinMode(PIN_ERASE, INPUT_PULLUP);
+	pinMode(PIN_COMMS_CLK, INPUT_PULLUP);
+
+	// This must not be set to INPUT_PULLUP. If there is a Microdrive upstream
+	// of the adapter in the daisy chain, the pull-up resistor would feed into
+	// that drive's COMMS_CLK output and confuse it.
+	pinMode(PIN_COMMS_IN, INPUT);
+}
+
+// When drive is off, signal lines should be set to the least intrusive mode
+// possible, to avoid interfering with any actual Microdrives that may be
+// present. This is INPUT without pull-up, which for the ATmega328P has a
+// typical input leakage current of 1uA.
+void deactivateSignals() {
+	// control signals
+	pinMode(PIN_READ_WRITE, INPUT);
+	pinMode(PIN_ERASE, INPUT);
+	pinMode(PIN_COMMS_CLK, INPUT);
+	pinMode(PIN_COMMS_IN, INPUT);
+	pinMode(PIN_WR_PROTECT, INPUT);
+
+	// tracks off
+	DDRC = 0;
+	PORTC = 0;
 }
 
 // ---------------------------------------------------------- DRIVE CONTROL ---
 
+//
 void driveOff() {
 	stopTimer();
-	setTracksToRecord();
-	disableWriteProtectOutput();
+	deactivateSignals();
 	ledWrite(IDLE);
 	ledRead(IDLE);
 	spinning = false;
@@ -410,7 +426,9 @@ void driveOff() {
 	headerGap = false;
 }
 
+//
 void driveOn() {
+	activateSignals();
 	setTracksToReplay();
 	headerGap = false;
 	driveState = DRIVE_STATE_UNKNOWN;
