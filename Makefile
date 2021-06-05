@@ -31,7 +31,7 @@ BINARIES = $(BUILD_OUTPUT)/bin
 ISOLATED_PKG = $(BUILD_OUTPUT)/pkg
 ISOLATED_CACHE = $(BUILD_OUTPUT)/cache
 
-GO_IMAGE = golang:1.15.12-buster@sha256:1ed7775160e5537b14415916815df279371a3226f5d7641feb0df8a5a797d0b5
+GO_IMAGE = golang:1.16.5-buster@sha256:be0e3a0f3ffa448b0bcbb9019edca692b8278407a44dc138c60e6f12f0218f87
 
 ## env
 # You can set the following environment variables when calling make:
@@ -94,6 +94,7 @@ ifneq ($(CROSS),)
 	$(call utils, build_binary oqtactl linux arm)
 	$(call utils, build_binary oqtactl linux arm64)
 	$(call utils, build_binary oqtactl darwin amd64)
+	$(call utils, build_binary oqtactl darwin arm64)
 	$(call utils, build_binary oqtactl windows amd64)
 endif
 	cd $(BINARIES); sha256sum oqtactl_*.zip > checksums.txt
