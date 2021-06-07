@@ -30,7 +30,7 @@ func NewMap() *Map {
 
 	m := &Map{}
 	m.Runner = *NewRunner(
-		"map [-p|--port {port}] -s|--start {first drive} -e|--end {last drive}",
+		"map [-a|--address {address}] -s|--start {first drive} -e|--end {last drive}",
 		"map group of hardware drives",
 		`
 Use the map command to move a group of hardware drives to the desired place within

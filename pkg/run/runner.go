@@ -55,7 +55,7 @@ type Runner struct {
 	//
 	Command
 	//
-	Port int
+	Address string
 }
 
 //
@@ -63,8 +63,8 @@ func (r *Runner) AddBaseSettings() {
 	// Implementation Note: This cannot be included in NewRunner, but rather has
 	// to be called from the top level command type. Otherwise, we will confuse
 	// Cobra/Viper and the settings will not be filled with their values.
-	r.AddSetting(&r.Port, "port", "p", "OQTADRIVE_PORT", 8888,
-		"port of daemon's API server", false)
+	r.AddSetting(&r.Address, "address", "a", "OQTADRIVE_ADDRESS", ":8888",
+		"listen address and port of daemon's API server", false)
 }
 
 //
@@ -72,9 +72,8 @@ func (r *Runner) apiCall(method, path string, json bool,
 	body io.Reader) (io.ReadCloser, error) {
 
 	client := &http.Client{}
-	// FIXME: parameterize server
 	req, err := http.NewRequest(
-		method, fmt.Sprintf("http://127.0.0.1:%d%s", r.Port, path), body)
+		method, fmt.Sprintf("http://%s%s", r.Address, path), body)
 	if err != nil {
 		return nil, err
 	}

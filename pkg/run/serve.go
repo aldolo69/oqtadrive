@@ -30,7 +30,7 @@ func NewServe() *Serve {
 
 	s := &Serve{}
 	s.Runner = *NewRunner(
-		"serve -d|--device {device} [-p|--port {port}]",
+		"serve -d|--device {device} [-a|--address {address}]",
 		"daemon & API server command",
 		"Use the serve command for running the adapter daemon and API server.",
 		"", `- Logging can be configured with these environment variables:
@@ -65,6 +65,6 @@ func (s *Serve) Run() error {
 	d := daemon.NewDaemon(s.Device)
 	go d.Serve()
 
-	api := control.NewAPIServer(s.Port, d)
+	api := control.NewAPIServer(s.Address, d)
 	return api.Serve()
 }

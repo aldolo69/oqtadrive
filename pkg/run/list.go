@@ -35,7 +35,7 @@ func NewList() *List {
 
 	l := &List{}
 	l.Runner = *NewRunner(
-		"ls [-p|--port {port}] [-d|--drive {drive}] [-i|--input {file}]",
+		"ls [-a|--address {address}] [-d|--drive {drive}] [-i|--input {file}]",
 		"get cartridge list from daemon",
 		`
 Use the ls command to get a drive list from the daemon. If a drive number or input

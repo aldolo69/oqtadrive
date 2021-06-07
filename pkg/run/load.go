@@ -36,7 +36,7 @@ func NewLoad() *Load {
 
 	l := &Load{}
 	l.Runner = *NewRunner(
-		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-r|--repair] [-p|--port {port}]",
+		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-r|--repair] [-a|--address {address}]",
 		"load cartridge into daemon",
 		"\nUse the load command to load a cartridge into the daemon.",
 		"", `- If you have Z80onMDR installed on your system and added to PATH, you can

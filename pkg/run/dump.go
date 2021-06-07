@@ -34,7 +34,7 @@ func NewDump() *Dump {
 
 	d := &Dump{}
 	d.Runner = *NewRunner(
-		"dump [-d|--drive {drive}] [-i|--input {file}] [-p|--port {port}]",
+		"dump [-d|--drive {drive}] [-i|--input {file}] [-a|--address {address}]",
 		"dump cartridge from file or daemon",
 		"\nUse the dump command to output a hex dump for a cartridge from file or from daemon.",
 		"", runnerHelpEpilogue, d.Run)

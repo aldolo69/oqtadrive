@@ -43,14 +43,14 @@ type APIServer interface {
 }
 
 //
-func NewAPIServer(port int, d *daemon.Daemon) APIServer {
-	return &api{port: port, daemon: d}
+func NewAPIServer(addr string, d *daemon.Daemon) APIServer {
+	return &api{address: addr, daemon: d}
 }
 
 //
 type api struct {
-	port   int
-	daemon *daemon.Daemon
+	address string
+	daemon  *daemon.Daemon
 }
 
 //
@@ -67,7 +67,10 @@ func (a *api) Serve() error {
 	addRoute(router, "map", "PUT", "/map", a.driveMap)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
 
-	addr := fmt.Sprintf(":%d", a.port)
+	addr := a.address
+	if len(strings.Split(addr, ":")) < 2 {
+		addr = fmt.Sprintf("%s:8888", a.address)
+	}
 	log.Infof("OqtaDrive API starts listening on %s", addr)
 	return http.ListenAndServe(addr, router)
 }

@@ -31,7 +31,7 @@ func NewUnload() *Unload {
 
 	u := &Unload{}
 	u.Runner = *NewRunner(
-		"unload [-d|--drive {drive}] [-f|--force] [-p|--port {port}]",
+		"unload [-d|--drive {drive}] [-f|--force] [-a|--address {address}]",
 		"unload cartridge from daemon",
 		`
 Use the unload command to unload a cartridge from the daemon, replacing

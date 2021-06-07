@@ -34,7 +34,7 @@ func NewSave() *Save {
 
 	s := &Save{}
 	s.Runner = *NewRunner(
-		"save [-d|--drive {drive}] -o|--output {file} [-f|--force] [-p|--port {port}]",
+		"save [-d|--drive {drive}] -o|--output {file} [-f|--force] [-a|--address {address}]",
 		"get cartridge from daemon and save",
 		"\nUse the save command to get a cartridge from the daemon and save it to a file.",
 		"", `- The format for saving the file is determined by the file extensions of the
