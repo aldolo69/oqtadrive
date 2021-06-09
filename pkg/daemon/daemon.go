@@ -51,6 +51,9 @@ type Daemon struct {
 	//
 	mru        *mru
 	debugStart time.Time
+	//
+	ctrlRun chan func() error
+	ctrlAck chan error
 }
 
 //
@@ -59,6 +62,8 @@ func NewDaemon(port string) *Daemon {
 		cartridges: make([]atomic.Value, DriveCount),
 		port:       port,
 		mru:        &mru{},
+		ctrlRun:    make(chan func() error),
+		ctrlAck:    make(chan error),
 	}
 }
 
@@ -280,5 +285,61 @@ func (d *Daemon) MapHardwareDrives(start, end int) error {
 			start, end)
 	}
 
-	return d.conduit.send([]byte{CmdMap, byte(start), byte(end), 0})
+	return d.queueControl(func() error {
+		if d.synced {
+			return d.conduit.send([]byte{CmdMap, byte(start), byte(end), 0})
+		}
+		return fmt.Errorf("not synced with adapter")
+	})
+}
+
+//
+func (d *Daemon) queueControl(f func() error) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	select {
+	case d.ctrlRun <- f:
+		log.Debug("control command queued")
+		break
+	case <-ctx.Done():
+		return fmt.Errorf("queuing control command timed out")
+	}
+
+	select {
+	case err := <-d.ctrlAck:
+		log.Debug("control command finished")
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("running control command timed out")
+	}
+}
+
+//
+func (d *Daemon) processControl() {
+
+	var f func() error
+
+	select {
+	case f = <-d.ctrlRun:
+		break
+	default:
+		log.Trace("no control command")
+		return
+	}
+
+	log.Debug("running control command")
+	err := f()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	select {
+	case d.ctrlAck <- err:
+		break
+	case <-ctx.Done():
+		log.Warn("control command client went away")
+		break
+	}
 }

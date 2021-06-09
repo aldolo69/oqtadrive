@@ -65,7 +65,10 @@ func (c *command) dispatch(d *Daemon) error {
 	case CmdPing:
 		if bytes.Equal(c.data, ping) {
 			log.Debugf("ping from %s", d.conduit.client)
-			return d.conduit.send(pong)
+			if err := d.conduit.send(pong); err != nil {
+				return err
+			}
+			d.processControl()
 		}
 		return nil
 

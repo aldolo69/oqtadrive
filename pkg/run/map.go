@@ -71,6 +71,8 @@ Note: Specifying the wrong number of hardware drives will cause problems. If
 		return nil
 	}
 
+	fmt.Println("\nrunning control command, this could take a moment...")
+
 	resp, err := m.apiCall("PUT",
 		fmt.Sprintf("/map?start=%d&end=%d", m.Start, m.End), false, nil)
 	if err != nil {
@@ -83,6 +85,6 @@ Note: Specifying the wrong number of hardware drives will cause problems. If
 		return err
 	}
 
-	fmt.Printf("\n%s\n", msg)
+	fmt.Printf("%s\n", msg)
 	return nil
 }
