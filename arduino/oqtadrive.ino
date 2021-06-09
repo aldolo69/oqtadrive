@@ -503,7 +503,15 @@ void commsClk() {
 	if (isCommsClk(d)) {
 		// When COMMS_CLK goes active, we increase the clock count, shift the
 		// register by one, and add current COMMS state at the start.
+
 		stopTimer();
+
+		if ((driveOffset == 0xff) && QL && comms && (commsClkCount < 8)) {
+			// When we see the 1 bit at COMMS_CLK going active, clock count is
+			// the drive offset, with an offset of 0 meaning first drive in chain.
+			driveOffset = commsClkCount;
+		}
+
 		commsClkCount++;
 		commsRegister = commsRegister << 1;
 		if (comms) {
@@ -519,12 +527,6 @@ void commsClk() {
 				d | MASK_COMMS_OUT : d & ~MASK_COMMS_OUT;
 		}
 		setTimer(TIMER_COMMS, selectDrive);
-	}
-
-	if (QL && comms && (driveOffset == 0xff) && (commsClkCount < 8)) {
-		// When we see the 1 bit at COMMS_CLK going active, clock count is the
-		// drive offset, with an offset of 0 meaning first drive in chain.
-		driveOffset = commsClkCount;
 	}
 }
 
@@ -565,7 +567,7 @@ void selectDrive() {
 	if (driveOffset != 0xff || commsClkCount > 7) {
 		// As soon as the drive offset has been determined, we can reset comms
 		// clock count each time a drive is selected. We can do this also if the
-		// count goes beyond the maximum offset (7), which happens when upon
+		// count goes beyond the maximum offset (7), which happens when
 		// resetting the QL.
 		commsClkCount = 0;
 	}
