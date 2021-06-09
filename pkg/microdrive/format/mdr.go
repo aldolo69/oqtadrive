@@ -152,7 +152,7 @@ func (m *MDR) Write(cart base.Cartridge, out io.Writer) error {
 			rec := sec.Record().Demuxed()
 
 			if len(rec) > if1.RecordLength {
-				// When formating on a Spectrum with an early ROM, records are
+				// When formatting on a Spectrum with an early ROM, records are
 				// longer than they normally would. The last phase of FORMAT
 				// overwrites these long records with standard ones, but some
 				// (in particular sector 254) may be left over. Reduce to normal

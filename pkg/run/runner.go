@@ -64,7 +64,8 @@ func (r *Runner) AddBaseSettings() {
 	// to be called from the top level command type. Otherwise, we will confuse
 	// Cobra/Viper and the settings will not be filled with their values.
 	r.AddSetting(&r.Address, "address", "a", "OQTADRIVE_ADDRESS", ":8888",
-		"listen address and port of daemon's API server", false)
+		`listen address and port of daemon's API server,
+format: {host}[:{port}]`, false)
 }
 
 //
