@@ -143,23 +143,30 @@ func (m *MDR) Write(cart base.Cartridge, out io.Writer) error {
 
 	for ix := 0; ix < cart.SectorCount(); ix++ {
 		if sec := cart.GetNextSector(); sec != nil {
-			if len(sec.Record().Demuxed()) > if1.RecordLength {
-				// When formating on a Spectrum with an early ROM, records are
-				// longer than they normally would. The last phase of FORMAT
-				// overwrites these long records with standard ones, but some
-				// (in particular sector 254) may be left over. If we still find
-				// one here, discard it.
-				log.Debugf(
-					"discarding sector %d (index %d) with long FORMAT record",
-					sec.Index(), ix)
-				continue
-			}
+
 			if _, err := out.Write(
 				sec.Header().Demuxed()[raw.SyncPatternLength:]); err != nil {
 				return err
 			}
-			if _, err := out.Write(
-				sec.Record().Demuxed()[raw.SyncPatternLength:]); err != nil {
+
+			rec := sec.Record().Demuxed()
+
+			if len(rec) > if1.RecordLength {
+				// When formating on a Spectrum with an early ROM, records are
+				// longer than they normally would. The last phase of FORMAT
+				// overwrites these long records with standard ones, but some
+				// (in particular sector 254) may be left over. Reduce to normal
+				// length when saving.
+				log.Debugf("reducing long FORMAT record in sector %d (index %d)",
+					sec.Index(), ix)
+				r, _ := if1.NewRecord(rec[:if1.RecordLength], false)
+				if err := r.FixChecksums(); err != nil {
+					return err
+				}
+				rec = r.Demuxed()
+			}
+
+			if _, err := out.Write(rec[raw.SyncPatternLength:]); err != nil {
 				return err
 			}
 		}
