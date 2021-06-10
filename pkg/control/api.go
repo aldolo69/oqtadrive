@@ -64,7 +64,8 @@ func (a *api) Serve() error {
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
 	addRoute(router, "save", "GET", "/drive/{drive:[1-8]}", a.save)
 	addRoute(router, "dump", "GET", "/drive/{drive:[1-8]}/dump", a.dump)
-	addRoute(router, "map", "PUT", "/map", a.driveMap)
+	addRoute(router, "map", "GET", "/map", a.getDriveMap)
+	addRoute(router, "map", "PUT", "/map", a.setDriveMap)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
 
 	addr := a.address
@@ -87,21 +88,22 @@ func addRoute(r *mux.Router, name, method, pattern string,
 //
 func requestLogger(inner http.Handler, name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debugf("API BEGIN | %s\t%s\t%s\t%s",
-			r.RemoteAddr,
-			r.Method,
-			r.RequestURI,
-			name,
-		)
+
+		log.WithFields(log.Fields{
+			"remote": r.RemoteAddr,
+			"method": r.Method,
+			"path":   r.RequestURI,
+		}).Debugf("API BEGIN | %s", name)
+
 		start := time.Now()
 		inner.ServeHTTP(w, r)
-		log.Debugf("API END   | %s\t%s\t%s\t%s\t%s",
-			r.RemoteAddr,
-			r.Method,
-			r.RequestURI,
-			name,
-			time.Since(start),
-		)
+
+		log.WithFields(log.Fields{
+			"remote":   r.RemoteAddr,
+			"method":   r.Method,
+			"path":     r.RequestURI,
+			"duration": time.Since(start),
+		}).Debugf("API END   | %s", name)
 	})
 }
 
@@ -273,6 +275,13 @@ func (a *api) driveInfo(w http.ResponseWriter, req *http.Request, info string) {
 		return
 	}
 
+	if a.daemon.GetStatus(drive) == daemon.StatusHardware {
+		sendReply([]byte(fmt.Sprintf(
+			"hardware drive mapped to slot %d", drive)),
+			http.StatusOK, w)
+		return
+	}
+
 	cart, ok := a.daemon.GetCartridge(drive)
 
 	if !ok {
@@ -303,8 +312,30 @@ func (a *api) driveInfo(w http.ResponseWriter, req *http.Request, info string) {
 	sendStreamReply(read, http.StatusOK, w)
 }
 
+// TODO: JSON response
+func (a *api) getDriveMap(w http.ResponseWriter, req *http.Request) {
+
+	start, end, locked := a.daemon.GetHardwareDrives()
+	msg := ""
+
+	if start == -1 || end == -1 {
+		msg = "no hardware drives"
+
+	} else {
+		if start == 0 && end == 0 {
+			msg = "hardware drives are off"
+		} else {
+			msg = fmt.Sprintf("hardware drives: start=%d, end=%d", start, end)
+		}
+		if locked {
+			msg += " (locked)"
+		}
+	}
+	sendReply([]byte(msg), http.StatusOK, w)
+}
+
 //
-func (a *api) driveMap(w http.ResponseWriter, req *http.Request) {
+func (a *api) setDriveMap(w http.ResponseWriter, req *http.Request) {
 
 	start, err := strconv.Atoi(getArg(req, "start"))
 	if handleError(err, http.StatusUnprocessableEntity, w) {

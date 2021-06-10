@@ -36,8 +36,8 @@ import (
 )
 
 //
-const MinProtocolVersion = 1
-const MaxProtocolVersion = 1
+const MinProtocolVersion = 2
+const MaxProtocolVersion = 2
 
 const commandLength = 4
 const sendBufferLength = 1024
@@ -60,13 +60,19 @@ type conduit struct {
 	client client.Client
 	port   io.ReadWriteCloser
 	//
+	hwGroupStart  int
+	hwGroupEnd    int
+	hwGroupLocked bool
+	//
 	sendBuf []byte
 }
 
 //
 func newConduit(port string) (*conduit, error) {
 	ret := &conduit{
-		sendBuf: make([]byte, sendBufferLength),
+		sendBuf:      make([]byte, sendBufferLength),
+		hwGroupStart: -1,
+		hwGroupEnd:   -1,
 	}
 	var err error
 	ret.port, err = openPort(port)

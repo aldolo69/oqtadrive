@@ -90,6 +90,8 @@ func (c *command) dispatch(d *Daemon) error {
 	case CmdTimeEnd:
 		return c.timer(false, d)
 
+	case CmdMap:
+		return c.driveMap(d)
 		// case CMD_VERIFY: FIXME
 	}
 

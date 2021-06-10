@@ -40,6 +40,7 @@ const DriveCount = 8
 const StatusEmpty = "empty"
 const StatusIdle = "idle"
 const StatusBusy = "busy"
+const StatusHardware = "hardware"
 
 // the daemon that manages communication with the Interface 1/QL
 type Daemon struct {
@@ -233,6 +234,10 @@ func (d *Daemon) setCartridge(ix int, c base.Cartridge) {
 
 // GetCartridge gets the cartridge at slot ix (1-based)
 func (d *Daemon) GetStatus(ix int) string {
+	start, end, _ := d.GetHardwareDrives()
+	if start <= ix && ix <= end {
+		return StatusHardware
+	}
 	if cart := d.getCartridge(ix); cart != nil {
 		if cart.IsLocked() {
 			return StatusBusy
@@ -270,18 +275,32 @@ func (d *Daemon) getCartridge(ix int) base.Cartridge {
 	return nil
 }
 
+// FIXME: not atomic
+func (d *Daemon) GetHardwareDrives() (int, int, bool) {
+	if d.synced {
+		return d.conduit.hwGroupStart, d.conduit.hwGroupEnd, d.conduit.hwGroupLocked
+	}
+	return -1, -1, false
+}
+
 //
 func (d *Daemon) MapHardwareDrives(start, end int) error {
 
+	if d.synced && d.conduit.hwGroupLocked {
+		return fmt.Errorf("hardware drive settings are locked")
+	}
+
 	if start < 0 || start > DriveCount {
-		return fmt.Errorf("illegal start index for h/w drive: %d", start)
+		return fmt.Errorf("illegal start index for hardware drive: %d", start)
 	}
+
 	if end < 0 || end > DriveCount || end < start {
-		return fmt.Errorf("illegal end index for h/w drive: %d", end)
+		return fmt.Errorf("illegal end index for hardware drive: %d", end)
 	}
+
 	if (start > 0 && end == 0) || (end > 0 && start == 0) {
 		return fmt.Errorf(
-			"either both h/w drive indexes are 0 or none: start = %d, end = %d",
+			"either both hardware drive indexes are 0 or none: start = %d, end = %d",
 			start, end)
 	}
 

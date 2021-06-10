@@ -51,13 +51,15 @@
     slots the drives are mapped after the adapter starts up. During operation
     you can then control the mapping via oqtactl. The hardware drives are always
     mapped as a group. Setting start and end to 0 will deactivate the hardware
-    drives.
+    drives. Setting HW_GROUP_LOCK to true will lock the group settings so that
+    they cannot be changed with oqtactl.
 
     Note: Set offsets above to 0, since hardware drive mapping requires the
-    OqtaDrive adapter to be first in the chain.
+          OqtaDrive adapter to be first in the chain.
  */
 #define HW_GROUP_START 0
 #define HW_GROUP_END   0
+#define HW_GROUP_LOCK  true
 
 //  Use these settings to force either Interface 1 or QL, but not both! When
 //  left at false, automatic detection is used.
@@ -141,9 +143,9 @@ volatile uint8_t commsRegister = 0;
 volatile uint8_t commsClkCount = 0;
 volatile uint8_t activeDrive   = 0;
 volatile uint8_t driveOffset   = 0xff;
-volatile uint8_t hwGroupStart = HW_GROUP_START;
-volatile uint8_t hwGroupEnd = HW_GROUP_END;
-volatile uint8_t maskHwOffset = 0;
+volatile uint8_t hwGroupStart  = 0;
+volatile uint8_t hwGroupEnd    = 0;
+volatile uint8_t maskHwOffset  = 0;
 
 bool commsClkState;
 
@@ -183,7 +185,7 @@ volatile bool calibration = false; // use the define setting at top to turn on!
 volatile bool synced      = false;
 
 // --- daemon commands --------------------------------------------------------
-const uint8_t PROTOCOL_VERSION = 1;
+const uint8_t PROTOCOL_VERSION = 2;
 
 const char CMD_HELLO   = 'h';
 const char CMD_VERSION = 'v';
@@ -212,6 +214,7 @@ unsigned long lastPing = 0;
 
 // ------------------------------------------------------------------ SETUP ---
 
+//
 void setup() {
 
 	deactivateSignals();
@@ -226,6 +229,9 @@ void setup() {
 	ledRead(IDLE);
 	ledWrite(IDLE);
 
+	// hardware drive group
+	setHWGroup(HW_GROUP_START, HW_GROUP_END);
+
 	// open channel to daemon & say hello
 	detectInterface();
 	Serial.begin(1000000, SERIAL_8N1); // 1Mbps is highest reliable rate
@@ -234,6 +240,15 @@ void setup() {
 	// set up interrupts
 	attachInterrupt(digitalPinToInterrupt(PIN_COMMS_CLK), commsClk, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(PIN_READ_WRITE), writeReq, FALLING);
+}
+
+//
+void setHWGroup(uint8_t start, uint8_t end) {
+	if (start <= 8 && end <= 8 && start <= end) {
+		hwGroupStart = start;
+		hwGroupEnd = end;
+		maskHwOffset = 1 << (start - 2);
+	}
 }
 
 // ------------------------------------------------------------------- LOOP ---
@@ -274,8 +289,8 @@ void loop() {
 
 		lastPing = millis();
 
-	} else if (daemonCheckCmd()) {
-		daemonPing();
+	} else if (daemonPing()) {
+		daemonCheckControl();
 	}
 }
 
@@ -916,6 +931,7 @@ void daemonSync() {
 		daemonCmd(IF1 ? IF1_HELLO : QL_HELLO);
 		if (daemonRcvAck(10, 100, DAEMON_HELLO)) {
 			daemonCmdArgs(CMD_VERSION, PROTOCOL_VERSION, 0, 0, 0);
+			daemonHWGroup();
 			lastPing = millis();
 			synced = true;
 			return;
@@ -924,50 +940,36 @@ void daemonSync() {
 }
 
 //
-bool daemonCheckCmd() {
+void daemonCheckControl() {
 
-	if (Serial.available() == 0) {
-		return true;
-	}
-
-	if (daemonRcvCmd(10, 5)) {
+	while (daemonRcvCmd(5, 2)) {
 
 		switch (buffer[CMD_LENGTH]) {
 
 			case CMD_MAP:
-				uint8_t start = buffer[CMD_LENGTH + 1];
-				if (start < 0 || start > 8) {
-					break;
+				if (!HW_GROUP_LOCK) {
+					setHWGroup(buffer[CMD_LENGTH + 1], buffer[CMD_LENGTH + 2]);
 				}
-				uint8_t end = buffer[CMD_LENGTH + 2];
-				if (end < 0 || end > 8 || end < start) {
-					break;
-				}
-				hwGroupStart = start;
-				hwGroupEnd = end;
-				maskHwOffset = 1 << (hwGroupStart - 2);
-				debugMsg('H', 's', start);
-				debugFlush();
-				debugMsg('H', 'e', end);
-				debugFlush();
+				daemonHWGroup();
 				break;
 		}
-
-		return true;
 	}
-
-	synced = false;
-	return false;
 }
 
 //
-void daemonPing() {
+void daemonHWGroup() {
+	daemonCmdArgs(CMD_MAP, hwGroupStart, hwGroupEnd, HW_GROUP_LOCK ? 1 : 0, 0);
+}
+
+//
+bool daemonPing() {
 	if (millis() - lastPing < PING_INTERVAL) {
-		return;
+		return false;
 	}
 	daemonCmd(DAEMON_PING);
 	synced = daemonRcvAck(10, 5, DAEMON_PONG);
 	lastPing = millis();
+	return synced;
 }
 
 //
@@ -1014,8 +1016,7 @@ bool daemonRcvCmd(uint8_t rounds, uint8_t wait) {
 		if (Serial.available() < CMD_LENGTH) {
 			delay(wait);
 		} else {
-			daemonRcv(CMD_LENGTH);
-			return true;
+			return daemonRcv(CMD_LENGTH) == CMD_LENGTH;
 		}
 	}
 	return false;
