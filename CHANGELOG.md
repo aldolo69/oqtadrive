@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.1.3
+This release requires re-flashing the adapter. Protocol version is now at `2`.
+
+### Adapter
+- GPIOs are now switched to `INPUT` mode without pull-ups when adapter is inactive, to minimize load on signal lines and that way reduce interference with hardware *Microdrives*.
+
+### Daemon
+- freely move hardware *Microdrives* as a group within the drive chain, or turn them off completely; requires adapter to be first in chain; refer to README for more details
+- changed `--port` option of `oqtactl` to `--address`, to specify full listen address, i.e. host & port
+- bug fix for saving cartridges formatted with earlier *Spectrum* ROMs - instead of dropping sectors with overlong format records, their records are now reduced to standard length when saving to *MDR*
+- added *MacOS* *ARM64* build to release binaries
+- switched to *Go* 1.16
+
 ## 0.1.2
 This release contains important bug fixes, so upgrading to this is strongly recommended. It requires re-flashing the adapter. The circuit also has small but important changes.
 

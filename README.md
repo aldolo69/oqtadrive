@@ -7,7 +7,8 @@
 
 ## Features
 - Supports all *Microdrive* operations on *Spectrum* with *Interface 1* and on *QL*, no modifications or additional software required
-- Daemon can run on *Linux*, *MacOS*, and *Windows* (community testing for the latter two needed!)
+- Can co-exist with actual hardware *Microdrive* units, which can be mapped on demand to any slot in the drive chain or turned off
+- Daemon can run on *Linux*, *MacOS*, and *Windows* (more community testing for the latter two needed!)
 - Load & save from/to *MDR* and *MDV* formatted cartridge files
 - For *Spectrum*, *Z80* snapshot files can be directly loaded (requires *Z80onMDR*)
 - List virtual drives & contents of cartridges
@@ -23,7 +24,7 @@ If you want to build *OqtaDrive* yourself, please carefully read the hardware se
 
 ### Caveats & Current Limitations
 
-- Drive offset detection is only available for the *QL*, but may not always work reliably. It's possible to set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. I haven't tried yet to bypass the internal drives on a *QL*, so I'd love to hear how that goes. For the *Spectrum* the offset defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that. 
+- Drive offset detection is only available for the *QL*. If you find that this is not working reliably, you can set a fixed value, i.e. `2` if the two internal drives on the *QL* are present. Have a look at the top of `oqtadrive.ino`. For the *Spectrum* it's technically not possible to offer offset auto detection, and it defaults to `0`. If you want to use an actual *Microdrive* between *Interface 1* and the adapter, you need to set that.
 
 - When running more than one daemon under the same user, they will use the same auto-save directory and hence mutually overwrite auto-save states. If you need to run several instances, run them with different users. A better solution will be provided in the future.
 
@@ -51,7 +52,7 @@ The circuit is straightforward. You only need to connect a few of the *Nano*'s G
 
 - The switching diodes (1N4148 or similar) in the `WR.PROTECT` and `/ERASE` lines are strictly required when using the adapter together with actual *Microdrives*. It protects the according GPIOs `D6` and `D5` on the *Nano* from over-voltage coming from the drives, and prevents `D5` from activating the erase head in an actual *Microdrive* unit when it is running.
 
-- `COMMS_OUT` is used when you want to daisy chain actual *Microdrives* behind the *OqtaDrive* adapter, instead of having it at the end of the chain (upcoming feature). `D7` needs to be connected to `COMMS_IN` of the first hardware drive in this case. By doing this, you can freely move the hardware drives as a group to wherever you need them in the chain, or turn them off completely.
+- `COMMS_OUT` is only used when you want to daisy chain actual *Microdrives* behind the *OqtaDrive* adapter, instead of having the adapter at the end of the chain (see below for more details). `D7` needs to be connected to `COMMS_IN` of the first hardware drive in this case. By doing this, you can freely move the hardware drives as a group to wherever you need them in the chain, or turn them off completely.
 
 - Connecting the 9V to `Vin` on the *Nano* is while not strictly required, still recommended. Without this, the *Nano* is only powered when connected to USB. If it's disconnected and the *Spectrum* or *QL* is powered on, current will be injected into the *Nano* via its GPIO pins. This may be outside the spec of the micro-controller on the *Nano*. So to be on the safe side, connect it, but don't skip the diode in that case! Any 1A diode such as a 1N4002 will do.
 
@@ -61,7 +62,7 @@ The circuit is straightforward. You only need to connect a few of the *Nano*'s G
 
 **My overall recommendation: Build the adapter as shown in the schematic above to minimize the risk of damaging your vintage machine!**
 
-### Differences in Pin-Outs
+### Differences in Connector Pin-Outs
 The pin-outs of the *Interface 1* and *QL* edge connectors are identical, so you can use the adapter with both. **Note however that the outgoing connector of a *Spectrum Microdrive* unit is different!** It is in fact upside down. That's why the cable for connecting a *Microdrive* unit to the *Interface 1* cannot be used to connect (i.e. daisy chain) two *Microdrive* units. If you want to use the adapter behind a *Microdrive* unit, you either need to wire it accordingly, or use an appropriate plug converter. Whichever you choose, fabricate it in a way that makes it mechanically impossible to accidentally plug it into an *Interface 1* or *QL*. **There will be damage otherwise!**
 
 This table shows the respective pin-outs (A = component side, B = solder side):
@@ -86,15 +87,43 @@ This table shows the respective pin-outs (A = component side, B = solder side):
 | 8B  | GND                 | GND               |
 
 ### Configuration
-The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the top of `oqtadrive.ino`. There are a few more settings that can be changed, but there shouldn't really be a need to do that.
+The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the top of `oqtadrive.ino`. There are a few more settings that can be changed.
 
 *Hint*: After turning on the *Spectrum*, the adapter sometimes erroneously detects the *Interface 1* as a *QL*. In that case, run `CAT 1` on the *Spectrum* and reset the adapter afterwards. That should fix the problem.
+
+### Combination with Hardware *Microdrive* Units
+If you're planning to use *OqtaDrive* together with actual hardware *Microdrive* units, then there are essentially two choices for placing the *OqtaDrive* adapter - either at the end of the drive chain or at the start. Here are a few considerations and pros & cons for both options.
+
+#### *Last in Chain*
+
+Pros:
+
+- simple - adapter just plugs into the *Interface 1*, *QL*, or *Microdrive* unit edge connector
+- requires just one edge connector plug
+- no hardware modifications needed
+
+Cons:
+
+- hardware *Microdrive* units are always upstream of the adapter, and cannot be turned off or mapped into different slots
+
+#### *First in Chain*
+
+Pros:
+
+- hardware *Microdrive* units can be freely moved as a group within the chain, or turned off completely
+
+    **Note**: To take advantage of drive mapping, you need to route the `COMMS_OUT` signal to the first hardware drive (see above) and make a couple of settings in the config section at the top of `arduino/oqtadrive.ino`.
+
+Cons:
+
+- requires an additional edge connector (plug) for connecting hardware *Microdrive* units; alternatively, the adapter can be installed into an *Interface 1* or *QL*, but cannot be used with other machines in that case
+
 
 ### Using a Different *Arduino* Board
 I haven't tried this out on anything other than a *Nano* (or compatible) board. It may work on other *Arduino* boards, but only if they use the same micro-controller running at the same clock speed. There are timing-sensitive sections in the code that would otherwise require tweaking. Also, stick to the GPIO pin assignments, the code relies on this.
 
 ## Running
-There's a single binary `oqtactl`, that takes care of everything that needs to be done on the PC side. This can run the daemon as well as several control actions. Just run `oqtactl -h` to get a list of the available actions, and `oqtactl {action} -h` for finding out more about a particular action. There are cross-compiled binaries for *MacOS* and *Windows* in the *release* section of this project for every release. However, I don't know whether they actually work, so feedback is welcome.
+There's a single binary `oqtactl`, that takes care of everything that needs to be done on the PC side. This can run the daemon as well as several control actions. Just run `oqtactl -h` to get a list of the available actions, and `oqtactl {action} -h` for finding out more about a particular action. There are cross-compiled binaries for *MacOS* and *Windows* in the *release* section of this project for every release.
 
 ### Daemon
 Start the daemon with `oqtactl serve -d {serial device}`. It will look for the adapter at the specified serial port, and keep retrying if it's not yet present. You can also dis- and re-connect the adapter. The daemon should re-sync after a few seconds.
@@ -113,7 +142,7 @@ Daemon logging behavior can be changed with these environment variables:
 | `LOG_METHODS` | include method names in log messages | `true`, `false` |
 
 ### Control Actions
-The daemon also serves an HTTP control API on port `8888` (can be changed with `-p` option). This is the integration point for any tooling that may evolve in the future, e.g. a browser-based GUI. It is also used by the provided command line actions. The most important ones are:
+The daemon also serves an HTTP control API on port `8888` (can be changed with `--address` option). This is the integration point for any tooling that may evolve in the future, e.g. a browser-based GUI. It is also used by the provided command line actions. The most important ones are:
 
 - load cartridge: `oqtactl load -d {drive} -i {file}`
 - save cartridge: `oqtactl save -d {drive} -o {file}`
