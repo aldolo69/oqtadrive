@@ -74,7 +74,7 @@ func (l *List) Run() error {
 			return err
 		}
 
-		cart, err := form.Read(bufio.NewReader(f), true, false)
+		cart, err := form.Read(bufio.NewReader(f), true, false, nil)
 		if err != nil {
 			return err
 		}

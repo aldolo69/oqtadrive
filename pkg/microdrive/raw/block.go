@@ -63,11 +63,14 @@ func (b *Block) GetByte(key string) byte {
 //
 func (b *Block) SetByte(key string, val byte) error {
 	if ix, ok := b.index[key]; ok {
-		if 0 <= ix[0] && ix[0] < len(b.Data) && ix[1] == 1 {
+		if ix[1] != 1 {
+			return typeMismatch(key, "byte")
+		}
+		if 0 <= ix[0] && ix[0] < len(b.Data) {
 			b.Data[ix[0]] = val
 			return nil
 		}
-		return typeMismatch(key, "byte")
+		return fmt.Errorf("index out of range: %d > %d", ix[0], len(b.Data)-1)
 	}
 	return illegalKey(key)
 }

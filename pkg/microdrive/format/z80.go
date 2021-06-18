@@ -21,47 +21,50 @@
 package format
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/z80"
 )
 
-// Reader interface for reading in a cartridge
-type Reader interface {
-	// when setting strict, invalid sectors are discarded
-	Read(in io.Reader, strict, repair bool,
-		params map[string]interface{}) (base.Cartridge, error)
-}
+// Z80 is a format for loading Z80 snapshots. It is an asymmetrical format in
+// the sense that it reads Z80 snapshots, but writes MDRs.
+type Z80 struct{}
 
-// Writer interface for writing out a cartridge
-type Writer interface {
-	Write(cart base.Cartridge, out io.Writer,
-		params map[string]interface{}) error
-}
-
-// ReaderWriter interface for reading/writing a cartridge
-type ReaderWriter interface {
-	Reader
-	Writer
+//
+func NewZ80() *Z80 {
+	return &Z80{}
 }
 
 //
-func NewFormat(typ string) (ReaderWriter, error) {
+func (z *Z80) Read(in io.Reader, strict, repair bool,
+	params map[string]interface{}) (base.Cartridge, error) {
 
-	switch strings.ToLower(typ) {
-
-	case "mdr":
-		return NewMDR(), nil
-
-	case "mdv":
-		return NewMDV(), nil
-
-	case "z80":
-		return NewZ80(), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported cartridge format: %s", typ)
+	name := ""
+	if params != nil {
+		if v, ok := params["name"]; ok && v != nil {
+			if n, ok := v.(string); ok {
+				name = n
+			}
+		}
 	}
+
+	cart, err := z80.LoadZ80(in, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if repair {
+		RepairOrder(cart)
+	}
+
+	cart.SetModified(false)
+	return cart, nil
+}
+
+//
+func (z *Z80) Write(cart base.Cartridge, out io.Writer,
+	params map[string]interface{}) error {
+
+	return NewMDR().Write(cart, out, params)
 }

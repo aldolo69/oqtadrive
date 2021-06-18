@@ -72,7 +72,7 @@ func (d *Dump) Run() error {
 			return err
 		}
 
-		cart, err := form.Read(bufio.NewReader(f), false, false)
+		cart, err := form.Read(bufio.NewReader(f), false, false, nil)
 		if err != nil {
 			return err
 		}

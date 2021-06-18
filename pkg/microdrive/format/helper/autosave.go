@@ -91,7 +91,7 @@ func AutoSave(drive int, cart base.Cartridge) error {
 		return err
 	}
 
-	if err := fm.Write(cart, out); err != nil {
+	if err := fm.Write(cart, out, nil); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func AutoLoad(drive int) (base.Cartridge, error) {
 		return nil, err
 	}
 
-	if cart, err := fm.Read(in, true, false); err != nil {
+	if cart, err := fm.Read(in, true, false, nil); err != nil {
 		return nil, err
 
 	} else {

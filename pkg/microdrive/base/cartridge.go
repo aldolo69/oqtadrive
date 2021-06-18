@@ -93,6 +93,11 @@ func (c *cartridge) Name() string {
 }
 
 //
+func (c *cartridge) SetName(n string) {
+	c.name = n
+}
+
+//
 func (c *cartridge) SectorCount() int {
 	return len(c.sectors)
 }
@@ -132,16 +137,16 @@ func (c *cartridge) Revert() {
 
 //
 func (c *cartridge) GetNextSector() Sector {
-	return c.getSectorAt(c.AdvanceAccessIx(true))
+	return c.GetSectorAt(c.AdvanceAccessIx(true))
 }
 
 //
 func (c *cartridge) GetPreviousSector() Sector {
-	return c.getSectorAt(c.RewindAccessIx(true))
+	return c.GetSectorAt(c.RewindAccessIx(true))
 }
 
 //
-func (c *cartridge) getSectorAt(ix int) Sector {
+func (c *cartridge) GetSectorAt(ix int) Sector {
 	if 0 <= ix && ix < len(c.sectors) {
 		return c.sectors[ix]
 	}
@@ -150,18 +155,18 @@ func (c *cartridge) getSectorAt(ix int) Sector {
 
 //
 func (c *cartridge) SetNextSector(s Sector) {
-	c.setSectorAt(c.AdvanceAccessIx(false), s)
+	c.SetSectorAt(c.AdvanceAccessIx(false), s)
 }
 
 //
 func (c *cartridge) SetPreviousSector(s Sector) {
-	c.setSectorAt(c.RewindAccessIx(false), s)
+	c.SetSectorAt(c.RewindAccessIx(false), s)
 }
 
 // setSector sets the provided sector in this cartridge at the given index.
-func (c *cartridge) setSectorAt(ix int, s Sector) {
+func (c *cartridge) SetSectorAt(ix int, s Sector) {
 	if 0 <= ix && ix < len(c.sectors) {
-		log.Debugf("setting sector at index %d", ix)
+		log.Tracef("setting sector at index %d", ix)
 		c.sectors[ix] = s
 		if strings.TrimSpace(s.Name()) != "" {
 			c.name = s.Name()
@@ -213,6 +218,11 @@ func (c *cartridge) IsAutoSaved() bool {
 //
 func (c *cartridge) SetAutoSaved(a bool) {
 	c.autosaved = a
+}
+
+//
+func (c *cartridge) AccessIx() int {
+	return c.accessIx
 }
 
 //

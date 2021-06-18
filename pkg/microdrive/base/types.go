@@ -47,6 +47,7 @@ type CartridgeBase interface {
 	Client() client.Client
 
 	Name() string
+	SetName(n string)
 
 	SectorCount() int
 
@@ -64,6 +65,8 @@ type CartridgeBase interface {
 	// sector afterwards.
 	GetPreviousSector() Sector
 
+	GetSectorAt(ix int) Sector
+
 	// SetNextSector sets the provided sector at the next access index, whether
 	// there is a sector present at that index or not. Access index points to the
 	// slot of the set sector afterwards.
@@ -73,6 +76,8 @@ type CartridgeBase interface {
 	// whether there is a sector present at that index or not. Access index points
 	// to the slot of the set sector afterwards.
 	SetPreviousSector(s Sector)
+
+	SetSectorAt(ix int, s Sector)
 
 	IsFormatted() bool
 
@@ -87,6 +92,8 @@ type CartridgeBase interface {
 	IsAutoSaved() bool
 
 	SetAutoSaved(a bool)
+
+	AccessIx() int
 
 	AdvanceAccessIx(skipEmpty bool) int
 

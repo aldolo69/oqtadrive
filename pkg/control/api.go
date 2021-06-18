@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -168,8 +169,13 @@ func (a *api) load(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	arg, err := getArg(req, "name")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+	params := map[string]interface{}{"name": arg}
 	cart, err := reader.Read(io.LimitReader(req.Body, 1048576), true,
-		isFlagSet(req, "repair"))
+		isFlagSet(req, "repair"), params)
 	if err != nil {
 		handleError(fmt.Errorf("cartridge corrupted: %v", err),
 			http.StatusUnprocessableEntity, w)
@@ -248,7 +254,8 @@ func (a *api) save(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var out bytes.Buffer
-	if handleError(writer.Write(cart, &out), http.StatusInternalServerError, w) {
+	if handleError(
+		writer.Write(cart, &out, nil), http.StatusInternalServerError, w) {
 		return
 	}
 
@@ -337,12 +344,20 @@ func (a *api) getDriveMap(w http.ResponseWriter, req *http.Request) {
 //
 func (a *api) setDriveMap(w http.ResponseWriter, req *http.Request) {
 
-	start, err := strconv.Atoi(getArg(req, "start"))
+	arg, err := getArg(req, "start")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+	start, err := strconv.Atoi(arg)
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return
 	}
 
-	end, err := strconv.Atoi(getArg(req, "end"))
+	arg, err = getArg(req, "end")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+	end, err := strconv.Atoi(arg)
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return
 	}
@@ -369,7 +384,11 @@ func getDrive(w http.ResponseWriter, req *http.Request) int {
 
 //
 func getFormat(w http.ResponseWriter, req *http.Request) format.ReaderWriter {
-	ret, err := format.NewFormat(getArg(req, "type"))
+	arg, err := getArg(req, "type")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return nil
+	}
+	ret, err := format.NewFormat(arg)
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return nil
 	}
@@ -378,12 +397,17 @@ func getFormat(w http.ResponseWriter, req *http.Request) format.ReaderWriter {
 
 //
 func isFlagSet(req *http.Request, flag string) bool {
-	return getArg(req, flag) == "true"
+	arg, _ := getArg(req, flag)
+	return arg == "true"
 }
 
 //
-func getArg(req *http.Request, arg string) string {
-	return req.URL.Query().Get(arg)
+func getArg(req *http.Request, arg string) (string, error) {
+	ret := req.URL.Query().Get(arg)
+	if ret != "" {
+		return url.QueryUnescape(ret)
+	}
+	return ret, nil
 }
 
 //

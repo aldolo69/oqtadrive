@@ -45,8 +45,18 @@ func CopySyncPattern(dest []byte) int {
 }
 
 //
+func WriteSyncPattern(wr io.Writer) (int, error) {
+	return wr.Write(syncPattern)
+}
+
+//
 func CopyDataSyncPattern(dest []byte) int {
 	return copy(dest, dataSyncPattern)
+}
+
+//
+func WriteDataSyncPattern(wr io.Writer) (int, error) {
+	return wr.Write(dataSyncPattern)
 }
 
 //

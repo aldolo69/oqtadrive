@@ -24,11 +24,10 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
-	"runtime"
+	"path/filepath"
 	"strings"
-
-	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
 )
 
 //
@@ -36,11 +35,11 @@ func NewLoad() *Load {
 
 	l := &Load{}
 	l.Runner = *NewRunner(
-		"load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-r|--repair] [-a|--address {address}]",
+		`load [-d|--drive {drive}] -i|--input {file} [-f|--force] [-r|--repair]
+       [-a|--address {address}] [-n|--name {cartridge name}]`,
 		"load cartridge into daemon",
 		"\nUse the load command to load a cartridge into the daemon.",
-		"", `- If you have Z80onMDR installed on your system and added to PATH, you can
-  directly load Z80 snapshot files into the daemon.
+		"", `- You can directly load Z80 snapshot files into the daemon.
 
 - Repair currently only recalculates checksums and reverts sector order, if needed.
   If the cartridge is really broken, it won't be fixed this way.
@@ -54,6 +53,8 @@ func NewLoad() *Load {
 		"force replacing modified cartridge in daemon", false)
 	l.AddSetting(&l.Repair, "repair", "r", "", false,
 		"try to repair cartridge if corrupted", false)
+	l.AddSetting(&l.Name, "name", "n", "", "",
+		"name to give to cartridge when loading a Z80 snapshot", false)
 
 	return l
 }
@@ -65,6 +66,7 @@ type Load struct {
 	//
 	Drive  int
 	File   string
+	Name   string
 	Force  bool
 	Repair bool
 }
@@ -78,21 +80,25 @@ func (l *Load) Run() error {
 		return err
 	}
 
-	if trapped, err := l.trapZ80(); err != nil {
-		return err
-	} else if trapped {
-		defer os.Remove(l.File)
-	}
-
 	f, err := os.Open(l.File)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
+	var name string
+
+	if l.Name != "" {
+		name = l.Name
+	} else {
+		_, name = filepath.Split(l.File)
+		name = strings.TrimSuffix(strings.ToUpper(name), ".Z80")
+	}
+
 	resp, err := l.apiCall("PUT",
-		fmt.Sprintf("/drive/%d?type=%s&force=%v&repair=%v",
-			l.Drive, getExtension(l.File), l.Force, l.Repair),
+		fmt.Sprintf("/drive/%d?type=%s&force=%v&repair=%v&name=%s",
+			l.Drive, getExtension(l.File), l.Force, l.Repair,
+			url.QueryEscape(name)),
 		false, bufio.NewReader(f))
 	if err != nil {
 		return err
@@ -106,34 +112,4 @@ func (l *Load) Run() error {
 
 	fmt.Printf("%s", msg)
 	return nil
-}
-
-//
-func (l *Load) trapZ80() (bool, error) {
-
-	ext := getExtension(l.File)
-
-	if strings.ToLower(ext) != "z80" {
-		return false, nil
-	}
-
-	// TODO: check version of Z80onMDR and ask only for v1.9a and older, or remove completely
-	if runtime.GOOS == "linux" && ext == "Z80" {
-		if GetUserConfirmation(
-			"Z80onMDR under Linux doesn't accept uppercase '.Z80' extension. Rename to '*.z80'?") {
-			newPath := strings.TrimSuffix(l.File, ".Z80") + ".z80"
-			if err := os.Rename(l.File, newPath); err != nil {
-				return false, err
-			}
-			l.File = newPath
-		}
-	}
-
-	if mdr, err := helper.Z80toMDR(l.File); err != nil {
-		return false, fmt.Errorf("error converting Z80 file: %v", err)
-	} else {
-		l.File = mdr
-	}
-
-	return true, nil
 }

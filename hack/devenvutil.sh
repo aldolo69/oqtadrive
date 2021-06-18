@@ -124,13 +124,16 @@ function build_binary {
 
     local binary="${BINARIES}/$1"
 
+    local extra_env
+    [[ "${arch}" != "arm" ]] || extra_env="-e GOARM=6"
+
     echo -e "\nbuilding ${binary} for $2/${arch}"
 
     # shellcheck disable=SC2086
     docker run --rm --user "$(id -u):$(id -g)" \
         -v "${ROOT}/${BINARIES}:/go/bin" ${CACHE_VOLS} \
         -v "${ROOT}:/go/src/${REPO}" -w "/go/src/${REPO}" \
-        -e CGO_ENABLED=0 -e GOOS="$2" -e GOARCH="${arch}" \
+        -e CGO_ENABLED=0 -e GOOS="$2" -e GOARCH="${arch}" ${extra_env} \
         "${GO_IMAGE}" go build -v -tags netgo -installsuffix netgo \
         -ldflags "-w -X main.OqtaDriveVersion=${OQTADRIVE_VERSION}" \
         -o "${binary}" "./cmd/$1/"
