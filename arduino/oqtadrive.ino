@@ -290,6 +290,9 @@ void loop() {
 		lastPing = millis();
 
 	} else if (daemonPing()) {
+		// After a successful ping exchange, open a brief window during which
+		// the daemon may send control commands. The daemon must not send
+		// commands at any other time.
 		daemonCheckControl();
 	}
 }

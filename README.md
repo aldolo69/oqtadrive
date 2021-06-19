@@ -3,9 +3,14 @@
 #### *Sinclair Microdrive* emulator for *Spectrum* & *QL*
 
 ## TL;DR
-*OqtaDrive* emulates a bank of up to 8 *Microdrives* for use with a *Sinclair Spectrum* or *QL* machine. It's built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via USB to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes a local HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives.
+*OqtaDrive* emulates a bank of up to 8 *Microdrives* for use with a *Sinclair Spectrum* or *QL* machine. It's built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via serial connection to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes an HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives.
 
-## Features
+## What Can I Do With This?
+*OqtaDrive*'s architecture makes it very flexible, so many setups are possible. The simplest one would be just the *Nano* that connects your *Interface 1* or *QL* with your PC, and you manage everything from there. This configuration also [fits nicely into the case of an *Interface 1*](https://github.com/xelalexv/oqtadrive/discussions/15). If you're rather looking for a stand-alone solution, that can be done as well. You could for example [run the daemon on a *RaspberryPi Zero W*](https://github.com/xelalexv/oqtadrive/discussions/13), [put it on a PCB together with the *Nano*](https://github.com/xelalexv/oqtadrive/discussions/4), and place this into a *Microdrive* case. The *Pi* would connect to your WiFi and you can control *OqtaDrive* from anywhere in your network.
+
+Due to the minimal hardware required, *OqtaDrive* is also very cost-efficient. In the simplest setup, you only need an *Arduino Nano* and a few resistors and diodes. Additionally, if you own a *Spectrum* and a *QL*, you can use it with both, no need to have dedicated adapters. But above all, there's the fun involved in building this! If you've created your very own setup, then just head over to the discussion section and tell us about it!
+
+### Features
 - Supports all *Microdrive* operations on *Spectrum* with *Interface 1* and on *QL*, no modifications or additional software required
 - Can co-exist with actual hardware *Microdrive* units, which can be mapped on demand to any slot in the drive chain or turned off
 - Daemon can run on *Linux*, *MacOS*, and *Windows* (more community testing for the latter two needed!)
@@ -28,14 +33,12 @@ If you want to build *OqtaDrive* yourself, please carefully read the hardware se
 
 - When running more than one daemon under the same user, they will use the same auto-save directory and hence mutually overwrite auto-save states. If you need to run several instances, run them with different users. A better solution will be provided in the future.
 
-- I haven't done a lot of testing yet.
-
 ## Motivation
 Why another *Microdrive* emulator? There are a few options out there already, but as far as I could see those are stand-alone solutions that use some form of media, usually an SD card to store the cartridges. So for one thing you have to go back and forth between the drive and your PC to upload new cartridge images or make backup copies. Additionally, almost by definition these standalone drives provide only a limited user interface for managing cartridges or require some form of control software running on the *Spectrum* or *QL* to do that. Still, they are great solutions, in particular if you want an authentic setup with no modern machines nearby.
 
 My use case is different though. Whenever I use my *Spectrum* or *QL*, it's in combination with my PC, which is running a video grabber. I also use my [spectratur](https://github.com/xelalexv/spectratur) project to do keyboard input directly from the PC. So I started thinking whether it wouldn't be possible to just stream the *Microdrive* data back and forth between *Spectrum*/*QL* and PC, and do all the management there. This would also open up interesting options, such as dynamically changing cartridge contents. Overall, however the goal is to functionally create a *faithful* reproduction of the original. That is, on the *Spectrum*/*QL* side, operating the emulated *Microdrives* should feel exactly the same as using the real thing.
 
-To sum up, the split into a *dumb* adapter and a *smart* daemon was a deliberate design choice for *OqtaDrive*. I explicitly did not want to duplicate stand-alone solutions that already existed. The stand-alone use case is overall not that important to myself, but that may be different for others of course. You could still create a stand-alone solution with *OqtaDrive* by using something like a *RaspberryPi Zero* as the daemon host and putting that into a case together with the *Arduino Nano*.
+To sum up, the split into a *dumb* adapter and a *smart* daemon was a deliberate design choice for *OqtaDrive*. I explicitly did not want to duplicate stand-alone solutions that already existed. The stand-alone use case is overall not that important to myself, but that may be different for others of course. As pointed out above, you can create a stand-alone solution with *OqtaDrive* by using something like a *RaspberryPi Zero* as the daemon host and putting that into a case together with the *Arduino Nano*.
 
 ## Hardware
 
