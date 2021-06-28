@@ -22,6 +22,7 @@ package control
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,6 +42,7 @@ import (
 //
 type APIServer interface {
 	Serve() error
+	Stop() error
 }
 
 //
@@ -52,6 +54,7 @@ func NewAPIServer(addr string, d *daemon.Daemon) APIServer {
 type api struct {
 	address string
 	daemon  *daemon.Daemon
+	server  *http.Server
 }
 
 //
@@ -73,8 +76,24 @@ func (a *api) Serve() error {
 	if len(strings.Split(addr, ":")) < 2 {
 		addr = fmt.Sprintf("%s:8888", a.address)
 	}
+
 	log.Infof("OqtaDrive API starts listening on %s", addr)
-	return http.ListenAndServe(addr, router)
+	a.server = &http.Server{Addr: addr, Handler: router}
+	err := a.server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+//
+func (a *api) Stop() error {
+	if a.server != nil {
+		log.Info("API server stopping...")
+		err := a.server.Shutdown(context.Background())
+		return err
+	}
+	return nil
 }
 
 //

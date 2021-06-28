@@ -96,7 +96,7 @@ func (c *conduit) close() error {
 }
 
 //
-func (c *conduit) syncOnHello() error {
+func (c *conduit) syncOnHello(d *Daemon) error {
 
 	log.Info("syncing with adapter")
 	hello := make([]byte, commandLength)
@@ -107,6 +107,10 @@ func (c *conduit) syncOnHello() error {
 		}
 		shiftLeft(hello)
 		if err := c.receive(hello[len(hello)-1:]); err != nil {
+			return err
+		}
+		if err := d.checkForStop(); err != nil {
+			c.close()
 			return err
 		}
 	}
@@ -123,6 +127,10 @@ func (c *conduit) syncOnHello() error {
 			break
 		}
 		log.Debugf("discarding command: %v", cmd.data)
+		if err := d.checkForStop(); err != nil {
+			c.close()
+			return err
+		}
 	}
 
 	log.WithField("adapter", c.client).Info("received hello")

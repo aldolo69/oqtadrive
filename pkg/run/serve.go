@@ -21,6 +21,13 @@
 package run
 
 import (
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/xelalexv/oqtadrive/pkg/control"
 	"github.com/xelalexv/oqtadrive/pkg/daemon"
 )
@@ -57,14 +64,47 @@ type Serve struct {
 	Device string
 }
 
-// FIXME: graceful shutdown
+//
 func (s *Serve) Run() error {
 
 	s.ParseSettings()
 
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
 	d := daemon.NewDaemon(s.Device)
-	go d.Serve()
+	go func() {
+		defer wg.Done()
+		err := d.Serve()
+		if err != nil && err != daemon.ErrDaemonStopped {
+			log.Errorf("daemon closed with error: %v", err)
+		} else {
+			log.Info("daemon stopped")
+		}
+	}()
 
 	api := control.NewAPIServer(s.Address, d)
-	return api.Serve()
+	go func() {
+		defer wg.Done()
+		if err := api.Serve(); err != nil {
+			log.Errorf("API server closed with error: %v", err)
+		} else {
+			log.Info("API server stopped")
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	for {
+		select {
+		case sig := <-sigs: // interrupt signal
+			log.WithField("signal", sig).Info("shutting down...")
+			api.Stop()
+			d.Stop()
+			wg.Wait()
+			log.Info("OqtaDrive stopped")
+			return nil
+		}
+	}
 }

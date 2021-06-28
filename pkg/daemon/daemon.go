@@ -22,6 +22,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,9 @@ const StatusIdle = "idle"
 const StatusBusy = "busy"
 const StatusHardware = "hardware"
 
+//
+var ErrDaemonStopped = errors.New("daemon stopped")
+
 // the daemon that manages communication with the Interface 1/QL
 type Daemon struct {
 	//
@@ -55,6 +59,8 @@ type Daemon struct {
 	//
 	ctrlRun chan func() error
 	ctrlAck chan error
+	//
+	stop chan bool
 }
 
 //
@@ -65,12 +71,31 @@ func NewDaemon(port string) *Daemon {
 		mru:        &mru{},
 		ctrlRun:    make(chan func() error),
 		ctrlAck:    make(chan error),
+		stop:       make(chan bool),
 	}
 }
 
 //
 func (d *Daemon) Serve() error {
 	return d.listen()
+}
+
+//
+func (d *Daemon) Stop() {
+	log.Info("daemon stopping...")
+	d.stop <- true
+}
+
+//
+func (d *Daemon) checkForStop() error {
+	select {
+	case s := <-d.stop:
+		if s {
+			return ErrDaemonStopped
+		}
+	default:
+	}
+	return nil
 }
 
 //
@@ -88,6 +113,14 @@ func (d *Daemon) listen() error {
 	var err error
 
 	for ; ; cmd = nil {
+
+		if err := d.checkForStop(); err != nil {
+			if d.conduit != nil {
+				d.conduit.close()
+			}
+			return err
+		}
+
 		if d.synced {
 			if cmd, err = d.conduit.receiveCommand(); err != nil {
 				log.Errorf("error receiving command: %v", err)
@@ -95,7 +128,10 @@ func (d *Daemon) listen() error {
 			}
 
 		} else {
-			if err = d.conduit.syncOnHello(); err != nil {
+			if err = d.conduit.syncOnHello(d); err != nil {
+				if err == ErrDaemonStopped {
+					return nil
+				}
 				log.Errorf("error syncing with adapter: %v", err)
 			} else {
 				d.synced = true
@@ -141,6 +177,9 @@ func (d *Daemon) ResetConduit() error {
 	quiet := false
 
 	for backoff := time.Second; ; {
+		if err := d.checkForStop(); err != nil {
+			return err
+		}
 		if con, err := newConduit(d.port); err != nil {
 			if !quiet {
 				logger.Warnf("cannot open serial port: %v", err)
