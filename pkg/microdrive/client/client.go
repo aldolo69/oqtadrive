@@ -20,13 +20,34 @@
 
 package client
 
+import (
+	"strings"
+)
+
 //
 type Client int
 
 const (
 	IF1 Client = iota
 	QL
+	UNKNOWN
 )
+
+//
+func GetClient(c string) Client {
+
+	switch strings.ToLower(c) {
+
+	case "if1":
+		return IF1
+
+	case "ql":
+		return QL
+
+	default:
+		return UNKNOWN
+	}
+}
 
 //
 func (c Client) String() string {

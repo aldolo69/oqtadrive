@@ -39,6 +39,10 @@ const CmdTimeStart = 't' // start stop watch
 const CmdTimeEnd = 'q'   // stop stop watch
 const CmdMap = 'm'       // h/w drive mapping (receive from IF1/QL)
 const CmdDebug = 'd'     // debug message (receive from IF1/QL)
+const CmdResync = 'r'    // resync with adapter (send to IF1/QL)
+
+const MaskIF1 = 1
+const MaskQL = 2
 
 var ping = []byte("Ping")
 var pong = []byte("Pong")
@@ -92,6 +96,7 @@ func (c *command) dispatch(d *Daemon) error {
 
 	case CmdMap:
 		return c.driveMap(d)
+
 		// case CMD_VERIFY: FIXME
 	}
 

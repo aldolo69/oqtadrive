@@ -31,6 +31,7 @@ import (
 
 	"github.com/xelalexv/oqtadrive/pkg/microdrive"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/base"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/format/helper"
 )
 
@@ -49,10 +50,11 @@ var ErrDaemonStopped = errors.New("daemon stopped")
 // the daemon that manages communication with the Interface 1/QL
 type Daemon struct {
 	//
-	cartridges []atomic.Value
-	conduit    *conduit
-	port       string
-	synced     bool
+	cartridges  []atomic.Value
+	conduit     *conduit
+	forceClient client.Client
+	port        string
+	synced      bool
 	//
 	mru        *mru
 	debugStart time.Time
@@ -64,14 +66,15 @@ type Daemon struct {
 }
 
 //
-func NewDaemon(port string) *Daemon {
+func NewDaemon(port string, force client.Client) *Daemon {
 	return &Daemon{
-		cartridges: make([]atomic.Value, DriveCount),
-		port:       port,
-		mru:        &mru{},
-		ctrlRun:    make(chan func() error),
-		ctrlAck:    make(chan error),
-		stop:       make(chan bool),
+		cartridges:  make([]atomic.Value, DriveCount),
+		port:        port,
+		forceClient: force,
+		mru:         &mru{},
+		ctrlRun:     make(chan func() error),
+		ctrlAck:     make(chan error),
+		stop:        make(chan bool),
 	}
 }
 
@@ -139,6 +142,12 @@ func (d *Daemon) listen() error {
 					if cart := d.getCartridge(ix); cart != nil {
 						cart.Unlock()
 					}
+				}
+				if d.forceClient != client.UNKNOWN &&
+					d.conduit.client != d.forceClient {
+					log.WithField("client", d.forceClient).Info(
+						"resyncing with adapter to force client type")
+					go d.Resync(d.forceClient)
 				}
 			}
 		}
@@ -271,7 +280,15 @@ func (d *Daemon) setCartridge(ix int, c base.Cartridge) {
 	}
 }
 
-// GetCartridge gets the cartridge at slot ix (1-based)
+// GetClient gets the type of currently connected adapter; FIXME: not atomic
+func (d *Daemon) GetClient() string {
+	if d.synced {
+		return d.conduit.client.String()
+	}
+	return client.UNKNOWN.String()
+}
+
+// GetStatus gets the status of cartridge at slot ix (1-based)
 func (d *Daemon) GetStatus(ix int) string {
 	start, end, _ := d.GetHardwareDrives()
 	if start <= ix && ix <= end {
@@ -348,6 +365,36 @@ func (d *Daemon) MapHardwareDrives(start, end int) error {
 			return d.conduit.send([]byte{CmdMap, byte(start), byte(end), 0})
 		}
 		return fmt.Errorf("not synced with adapter")
+	})
+}
+
+//
+func (d *Daemon) Resync(cl client.Client) error {
+
+	if !d.synced {
+		return fmt.Errorf("not connected to adapter")
+	}
+
+	if d.forceClient != client.UNKNOWN && cl != d.forceClient {
+		log.Warnf(
+			"daemon was started with forced client type '%s', cannot override",
+			d.forceClient)
+		cl = d.forceClient
+	}
+
+	var p byte
+	switch cl {
+	case client.IF1:
+		p |= MaskIF1
+	case client.QL:
+		p |= MaskQL
+	}
+
+	return d.queueControl(func() error {
+		if d.synced {
+			return d.conduit.send([]byte{CmdResync, p, 0, 0})
+		}
+		return fmt.Errorf("not connected to adapter")
 	})
 }
 

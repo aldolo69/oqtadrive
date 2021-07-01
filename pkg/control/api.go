@@ -36,6 +36,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xelalexv/oqtadrive/pkg/daemon"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/format"
 )
 
@@ -71,6 +72,7 @@ func (a *api) Serve() error {
 	addRoute(router, "map", "GET", "/map", a.getDriveMap)
 	addRoute(router, "map", "PUT", "/map", a.setDriveMap)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
+	addRoute(router, "resync", "PUT", "/resync", a.resync)
 
 	addr := a.address
 	if len(strings.Split(addr, ":")) < 2 {
@@ -130,7 +132,7 @@ func requestLogger(inner http.Handler, name string) http.Handler {
 //
 func (a *api) status(w http.ResponseWriter, req *http.Request) {
 
-	stat := &Status{}
+	stat := &Status{Client: a.daemon.GetClient()}
 	for drive := 1; drive <= daemon.DriveCount; drive++ {
 		stat.Add(a.daemon.GetStatus(drive))
 	}
@@ -389,6 +391,31 @@ func (a *api) setDriveMap(w http.ResponseWriter, req *http.Request) {
 	sendReply([]byte(fmt.Sprintf(
 		"mapped hardware drives: start=%d, end=%d", start, end)),
 		http.StatusOK, w)
+}
+
+//
+func (a *api) resync(w http.ResponseWriter, req *http.Request) {
+
+	arg, err := getArg(req, "client")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	var cl client.Client = client.UNKNOWN
+
+	if arg != "" {
+		if cl = client.GetClient(arg); cl == client.UNKNOWN {
+			handleError(fmt.Errorf("unknown client type: %s", arg),
+				http.StatusUnprocessableEntity, w)
+			return
+		}
+	}
+
+	if handleError(a.daemon.Resync(cl), http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	sendReply([]byte("resyncing with adapter"), http.StatusOK, w)
 }
 
 //

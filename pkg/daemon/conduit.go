@@ -133,7 +133,7 @@ func (c *conduit) syncOnHello(d *Daemon) error {
 		}
 	}
 
-	log.WithField("adapter", c.client).Info("received hello")
+	log.WithField("client", c.client).Info("received hello")
 
 	if err := c.send(helloDaemon); err != nil {
 		return fmt.Errorf("error sending daemon hello: %v", err)

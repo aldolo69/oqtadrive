@@ -196,6 +196,7 @@ const char CMD_PUT     = 'p';
 const char CMD_VERIFY  = 'y';
 const char CMD_MAP     = 'm';
 const char CMD_DEBUG   = 'd';
+const char CMD_RESYNC  = 'r';
 
 const uint8_t  CMD_LENGTH = 4;
 const uint16_t PAYLOAD_LENGTH = BUF_LENGTH - CMD_LENGTH;
@@ -205,6 +206,9 @@ const char DAEMON_PONG[]  = {CMD_PING, 'o', 'n', 'g'};
 const char DAEMON_HELLO[] = {CMD_HELLO, 'l' , 'o', 'd'};
 const char IF1_HELLO[]    = {CMD_HELLO, 'l' , 'o', 'i'};
 const char QL_HELLO[]     = {CMD_HELLO, 'l' , 'o', 'q'};
+
+const uint8_t MASK_IF1 = 1;
+const uint8_t MASK_QL  = 2;
 
 const unsigned long DAEMON_TIMEOUT   =  5000;
 const unsigned long RESYNC_THRESHOLD =  4500;
@@ -233,7 +237,7 @@ void setup() {
 	setHWGroup(HW_GROUP_START, HW_GROUP_END);
 
 	// open channel to daemon & say hello
-	detectInterface();
+	detectInterface(false, false);
 	Serial.begin(1000000, SERIAL_8N1); // 1Mbps is highest reliable rate
 	Serial.setTimeout(DAEMON_TIMEOUT);
 
@@ -299,12 +303,15 @@ void loop() {
 
 // ---------------------------------------------- Interface 1 / QL HANDLING ---
 
-void detectInterface() {
+void detectInterface(bool if1, bool ql) {
 
-	if (FORCE_IF1) {
+	if1 = FORCE_IF1 ? true : if1;
+	ql = FORCE_QL ? true : ql;
+
+	if (if1) {
 		IF1 = true;
 
-	} else if (FORCE_QL) {
+	} else if (ql) {
 		IF1 = false;
 
 	} else {
@@ -955,6 +962,12 @@ void daemonCheckControl() {
 				}
 				daemonHWGroup();
 				break;
+
+			case CMD_RESYNC:
+				uint8_t p = buffer[CMD_LENGTH + 1];
+				detectInterface((p & MASK_IF1) != 0, (p & MASK_QL) != 0);
+				synced = false;
+				return;
 		}
 	}
 }

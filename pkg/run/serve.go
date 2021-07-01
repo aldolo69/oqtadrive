@@ -21,6 +21,7 @@
 package run
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/xelalexv/oqtadrive/pkg/control"
 	"github.com/xelalexv/oqtadrive/pkg/daemon"
+	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 )
 
 //
@@ -37,9 +39,12 @@ func NewServe() *Serve {
 
 	s := &Serve{}
 	s.Runner = *NewRunner(
-		"serve -d|--device {device} [-a|--address {address}]",
+		"serve -d|--device {device} [-a|--address {address}]  [-c|--client {if1|ql}]",
 		"daemon & API server command",
-		"Use the serve command for running the adapter daemon and API server.",
+		`Use the serve command for running the adapter daemon and API server. Optionally, you
+can specify whether the adapter should be configured for Interface 1 or QL after
+connecting to it. Note however that if the adapter is forced to a particular client
+in its configuration, then this cannot be changed.`,
 		"", `- Logging can be configured with these environment variables:
 
   LOG_FORMAT		set to 'json' for JSON logging
@@ -52,6 +57,8 @@ func NewServe() *Serve {
 	s.AddBaseSettings()
 	s.AddSetting(&s.Device, "device", "d", "OQTADRIVE_DEVICE", nil,
 		"serial port device for adapter", true)
+	s.AddSetting(&s.Client, "client", "c", "", nil,
+		"client type, 'if1' or 'ql'", false)
 
 	return s
 }
@@ -62,6 +69,7 @@ type Serve struct {
 	Runner
 	//
 	Device string
+	Client string
 }
 
 //
@@ -69,10 +77,17 @@ func (s *Serve) Run() error {
 
 	s.ParseSettings()
 
+	cl := client.UNKNOWN
+	if s.Client != "" {
+		if cl = client.GetClient(s.Client); cl == client.UNKNOWN {
+			return fmt.Errorf("unknown client type: %s", s.Client)
+		}
+	}
+
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 
-	d := daemon.NewDaemon(s.Device)
+	d := daemon.NewDaemon(s.Device, cl)
 	go func() {
 		defer wg.Done()
 		err := d.Serve()
@@ -95,15 +110,38 @@ func (s *Serve) Run() error {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sigCount := 0
+	done := make(chan bool)
 
 	for {
+
 		select {
+
 		case sig := <-sigs: // interrupt signal
-			log.WithField("signal", sig).Info("shutting down...")
-			api.Stop()
-			d.Stop()
-			wg.Wait()
-			log.Info("OqtaDrive stopped")
+			log.WithField("signal", sig).Info("signal received")
+			sigCount++
+
+			switch sigCount {
+
+			case 1:
+				go func() {
+					log.Info("shutting down, hit Ctrl-C twice to force exit...")
+					api.Stop()
+					d.Stop()
+					wg.Wait()
+					log.Info("OqtaDrive stopped")
+					done <- true
+				}()
+
+			case 2:
+				log.Warn("shutdown in progress, hit Ctrl-C again to force exit")
+
+			default:
+				log.Warn("forcing daemon to stop immediately")
+				os.Exit(1)
+			}
+
+		case <-done: // shutdown sequence complete
 			return nil
 		}
 	}

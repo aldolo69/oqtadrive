@@ -30,6 +30,7 @@ import (
 
 //
 type Status struct {
+	Client string   `json:"client"`
 	Drives []string `json:"drives"`
 }
 
@@ -40,7 +41,7 @@ func (s *Status) Add(d string) {
 
 //
 func (s *Status) String() string {
-	ret := "\n"
+	ret := fmt.Sprintf("client: %s\n", s.Client)
 	for ix, d := range s.Drives {
 		ret = fmt.Sprintf("%s%d: %s\n", ret, ix+1, d)
 	}
