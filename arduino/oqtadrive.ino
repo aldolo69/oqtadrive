@@ -28,6 +28,10 @@
 //  Set here whether read & write LEDs should be on when idling.
 #define LED_RW_IDLE_ON true
 
+// Set here whether the read & write LEDs should indicate that the adapter is
+// waiting to sync with the daemon (LEDs alternate)
+#define LED_SYNC_WAIT true
+
 /*
     Automatic offset check only works for QL. If you're using OqtaDrive with an
     actual Microdrive between IF1 and the adapter, you can set a fixed offset
@@ -185,7 +189,7 @@ volatile bool calibration = false; // use the define setting at top to turn on!
 volatile bool synced      = false;
 
 // --- daemon commands --------------------------------------------------------
-const uint8_t PROTOCOL_VERSION = 2;
+const uint8_t PROTOCOL_VERSION = 3;
 
 const char CMD_HELLO   = 'h';
 const char CMD_VERSION = 'v';
@@ -936,15 +940,34 @@ void debugFlush() {
 
 //
 void daemonSync() {
+
 	driveState = DRIVE_STATE_UNKNOWN;
+
+	if (LED_SYNC_WAIT) {
+		ledRead(true);
+		ledWrite(false);
+	}
+
 	while (true) {
+
 		daemonCmd(IF1 ? IF1_HELLO : QL_HELLO);
+
 		if (daemonRcvAck(10, 100, DAEMON_HELLO)) {
 			daemonCmdArgs(CMD_VERSION, PROTOCOL_VERSION, 0, 0, 0);
 			daemonHWGroup();
 			lastPing = millis();
 			synced = true;
+
+			if (LED_SYNC_WAIT) {
+				ledRead(IDLE);
+				ledWrite(IDLE);
+			}
 			return;
+		}
+
+		if (LED_SYNC_WAIT) {
+			ledReadFlip();
+			ledWriteFlip();
 		}
 	}
 }

@@ -36,8 +36,8 @@ import (
 )
 
 //
-const MinProtocolVersion = 2
-const MaxProtocolVersion = 2
+const MinProtocolVersion = 3
+const MaxProtocolVersion = 3
 
 const commandLength = 4
 const sendBufferLength = 1024
