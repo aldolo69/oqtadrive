@@ -185,7 +185,7 @@ func (d *Daemon) ResetConduit() error {
 	maxBackoff := 15 * time.Second
 	quiet := false
 
-	for backoff := time.Second; ; {
+	for backoff := time.Millisecond; ; {
 		if err := d.checkForStop(); err != nil {
 			return err
 		}
@@ -195,13 +195,17 @@ func (d *Daemon) ResetConduit() error {
 			}
 
 			if backoff < maxBackoff {
-				backoff *= 2
+				backoff = backoff * 5 / 4
 			} else if !quiet {
 				logger.Warn(
 					"repeatedly failed to open serial port, will keep trying but stop logging about it")
 				quiet = true
 			}
-			time.Sleep(backoff)
+			if backoff < time.Second {
+				time.Sleep(time.Second)
+			} else {
+				time.Sleep(backoff)
+			}
 
 		} else {
 			logger.Info("serial port opened")
