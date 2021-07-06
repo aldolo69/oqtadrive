@@ -15,7 +15,7 @@ Due to the minimal hardware required, *OqtaDrive* is also very cost-efficient. I
 - Can co-exist with actual hardware *Microdrive* units, which can be mapped on demand to any slot in the drive chain or turned off
 - Daemon can run on *Linux*, *MacOS*, and *Windows* (more community testing for the latter two needed!)
 - Load & save from/to *MDR* and *MDV* formatted cartridge files
-- For *Spectrum*, *Z80* snapshot files can be directly loaded (requires *Z80onMDR*)
+- For *Spectrum*, *Z80* snapshot files can be directly loaded, no additional software required. Big thanks to Tom Dalby for open-sourcing [Z80onMDR Lite](https://github.com/TomDDG/Z80onMDR_lite)!
 - List virtual drives & contents of cartridges
 - Hex dump cartridge contents for inspection
 
@@ -152,7 +152,7 @@ The daemon also serves an HTTP control API on port `8888` (can be changed with `
 - list drives: `oqtactl ls`
 - list cartridge content: `oqtactl ls -d {drive}` or `oqtactl ls -i {file}`
 
-`load` & `save` currently support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises. If you have [*Z80onMDR*](https://www.tomdalby.com/other/z80onmdr.html) installed on your system and added to `PATH`, `load` can load *Spectrum Z80* snapshot files into the daemon, converting them to *MDR* on the fly by calling *Z80onMDR*.
+`load` & `save` currently support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises. For the *Spectrum* `load` can also load *Z80* snapshot files into the daemon, converting them to *MDR* on the fly.
 
 ## Building
 On *Linux* you can use the `Makefile` to build `oqtactl`, the *OqtaDrive* binary. Note that for consistency, building is done inside a *Golang* build container, so you will need *Docker* to build, but no other dependencies. Just run `make build`. You can also cross-compile for *MacOS* and *Windows*. Run `CROSS=y make build` in that case. If you want to build on *MacOS* or *Windows* directly, you would have to install the *Golang* SDK there and run the proper `go build` command manually. 

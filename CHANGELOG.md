@@ -1,5 +1,19 @@
 # Change Log
 
+## 0.1.4
+This release requires re-flashing the adapter. Protocol version is now at `3`.
+
+### Adapter
+- indicate sync wait by alternating read/write LEDs
+
+### Daemon
+- added `resync` command
+- added `--client` option to `serve` command
+- graceful shutdown
+- integrated *Z80onMDR* into *OqtaDrive* code base; Big thanks to Tom Dalby for open-sourcing [Z80onMDR Lite](https://github.com/TomDDG/Z80onMDR_lite)! You now no longer need to install *Z80onMDR* on your system, it's available wherever *OqtaDrive* can run.
+- less aggressive retry back-off when daemon fails to open serial port; improves boot time in stand-alone setups
+- documentation updates
+
 ## 0.1.3
 This release requires re-flashing the adapter. Protocol version is now at `2`.
 
