@@ -24,9 +24,25 @@
 // ----------------------------------------------------------------- CONFIG ---
 //  This section contains all configuration items. Do not change anything below
 //  this section unless you know what you're doing!
+//
+//  If you need to maintain configs for various adapters, you can alternatively
+//  place your settings in different header files in the `config` folder next
+//  to this file, one per adapter, and `#include` the desired one before
+//  uploading. Just make sure to `#define OQTADRIVE_CONFIG` in the header file
+//  to disable the config section here. Each header file needs to contain all
+//  settings, no merge with the settings below is done. Note that for
+//  convenience, files in the `config` folder are git-ignored.
+//
+//#include "config/dongle.h"
+//#include "config/spectrum.h"
+//#include "config/if1.h"
+//#include "config/ql.h"
+//#include "config/pi.h"
+
+#ifndef OQTADRIVE_CONFIG
 
 //  Set here whether read & write LEDs should be on when idling.
-#define LED_RW_IDLE_ON true
+#define LED_RW_IDLE_ON false
 
 // Set here whether the read & write LEDs should indicate that the adapter is
 // waiting to sync with the daemon (LEDs alternate)
@@ -70,7 +86,7 @@
 #define FORCE_IF1 false
 #define FORCE_QL  false
 
-
+#endif
 // ----------------------------------- END OF CONFIG - START OF DANGER ZONE ---
 
 
