@@ -589,6 +589,10 @@ void selectDrive() {
 		return;
 	}
 
+	if (!synced) {
+		return;
+	}
+
 	activeDrive = 0;
 
 	// A drive offset of 0xff means we don't know yet, and that also means
