@@ -59,7 +59,7 @@ type cartridge struct {
 func (c *cartridge) Lock(ctx context.Context) bool {
 	select {
 	case c.lock <- true:
-		log.Debug("cartridge locked")
+		log.Trace("cartridge locked")
 		return true
 	case <-ctx.Done():
 		log.Debug("cartridge lock timed out")
@@ -71,7 +71,7 @@ func (c *cartridge) Lock(ctx context.Context) bool {
 func (c *cartridge) Unlock() {
 	select {
 	case <-c.lock:
-		log.Debug("cartridge unlocked")
+		log.Trace("cartridge unlocked")
 	default:
 		log.Debug("cartridge was already unlocked")
 	}

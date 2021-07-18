@@ -62,6 +62,8 @@ ROOT = $(shell pwd)
 #	${ITL}OLD_NANO=y${NRM}	set this when the adapter is using a ${ITL}Nano${NRM} board with
 #			old boot loader (sets fqbn accordingly)
 #
+#	${ITL}SKIP_UI=y${NRM}	set this to skip installing the web UI
+#
 #	${ITL}FQBN${NRM}		board identifier to use when uploading; defaults to
 #			${DIM}arduino:avr:nano${NRM}
 #
@@ -91,6 +93,7 @@ endif
 VERSION ?=
 PORT ?= /dev/ttyUSB0
 RESET_PIN ?= 18
+SKIP_UI ?= n
 
 OQTACTL := $(ROOT)/oqtactl
 SKETCH_DIR := $(ROOT)/oqtadrive
@@ -105,7 +108,7 @@ ifeq ($(OLD_NANO),y)
 endif
 
 BASE_URL := https://github.com/xelalexv/oqtadrive/raw
-BRANCH := setup
+BRANCH ?= master
 
 export
 
@@ -121,7 +124,7 @@ help: sanity
 
 
 .PHONY: install
-install: sanity get_oqtactl get_firmware get_arduinocli
+install: sanity get_oqtactl get_firmware get_ui get_arduinocli
 #	run full installation
 #
 
@@ -132,7 +135,7 @@ remove: sanity service_off
 #
 	echo -e "uninstalling components"
 	rm -rf "$(SKETCH)" "$(SKETCH).org" "$(ARDUINO_DIR)" \
-		./oqtactl ./hack ~/.arduino15
+		./oqtactl ./hack ./ui ~/.arduino15
 
 
 .PHONY: service_on
@@ -152,7 +155,7 @@ service_off: sanity
 
 
 .PHONY: upgrade
-upgrade: get_oqtactl get_firmware flash
+upgrade: get_oqtactl get_ui get_firmware flash
 #	get ${DIM}oqtactl${NRM} binary and firmware & upload to adapter
 #
 
@@ -226,6 +229,18 @@ get_oqtactl: sanity
 	echo -e "\ndownloading oqtactl binary"
 	$(call utils, download_oqtactl)
 	"${OQTACTL}" version
+
+
+.PHONY: get_ui
+get_ui: sanity
+#	download web UI assets
+#
+ifneq ($(SKIP_UI),y)
+	echo -e "\ndownloading web UI assets"
+	$(call utils, download_ui)
+else
+	echo -e "\nskipping UI installation, as requested"
+endif
 
 
 .PHONY: sanity

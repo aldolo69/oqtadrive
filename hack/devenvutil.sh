@@ -143,9 +143,9 @@ function build_binary {
     zip -j "../${binary}${specifier}.zip" "../${binary}"
 
     if [[ "$4" == "keep" ]]; then
-    	mv "../${binary}" "../${binary}${specifier}"
+        mv "../${binary}" "../${binary}${specifier}"
     else
-    	rm -f "../${binary}"
+        rm -f "../${binary}"
     fi
 }
 
@@ -174,7 +174,7 @@ function download_oqtactl {
 
     if [[ -z "${url}" || ! ${url} =~ ${marker} ]]; then
         echo -e \
-            "\nNo download available for architecture '${arch}' on OS '${os}', in version '${VERSION}'.\n" >&2
+            "\nNo download available for architecture '${arch}' on OS '${os}' in version '$(version_label "${VERSION}")'.\n" >&2
         return 1
     fi
 
@@ -184,6 +184,35 @@ function download_oqtactl {
     rm oqtactl.zip
     chmod +x oqtactl
     mv oqtactl "${OQTACTL}"
+}
+
+#
+#
+#
+function download_ui {
+
+    local url
+
+    if [[ -z "${BUILD_URL}" ]]; then # get form GitHub release page
+        url="$(get_asset_url ui.zip)"
+
+    else # get from custom build page
+        url="$(curl -fsSL "${BUILD_URL}" \
+            | grep ui.zip \
+            | cut -d '"' -f 8)" && url="${BUILD_URL}/${url}"
+    fi
+
+    if [[ -z "${url}" || ! ${url} =~ ui\.zip ]]; then
+        echo -e "\nNo UI available in version '$(version_label "${VERSION}")'.\n" >&2
+        return
+    fi
+
+    echo "  from ${url}"
+    curl -fsSL "${url}" -o ui.zip
+    rm -rf ui "${ROOT}/ui"
+    unzip ui.zip
+    rm ui.zip
+    mv ui "${ROOT}/ui"
 }
 
 #
@@ -226,6 +255,15 @@ function get_asset_url {
 function get_latest_release {
     github_api_call "releases/latest" 2>/dev/null \
         | jq -r ".name"
+}
+
+#
+# $1    version; 'latest', '', or omit for latest version
+#
+function version_label {
+    local l="latest"
+    [[ -z "$1" ]] || l="$1"
+    echo -n "${l}"
 }
 
 #

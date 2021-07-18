@@ -5,7 +5,7 @@
 ## TL;DR
 *OqtaDrive* emulates a bank of up to 8 *Microdrives* for use with a *Sinclair Spectrum* (with *Interface 1*) or *QL* machine. The goal is to functionally create a *faithful* reproduction of the original. That is, on the *Spectrum*/*QL* side, operating the emulated *Microdrives* should feel exactly the same as using the real thing.
 
-*OqtaDrive* is built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via serial connection to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes an HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives. A web UI is currently being developed.
+*OqtaDrive* is built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via serial connection to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes an HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives. A web UI is available as well.
 
 ## What Can I Do With This?
 *OqtaDrive*'s architecture makes it very flexible, so many setups are possible. The simplest one would be just the *Nano* that connects your *Interface 1* or *QL* with your PC, and you manage everything from there. This configuration also [fits nicely into the case of an *Interface 1*](https://github.com/xelalexv/oqtadrive/discussions/15). If you're rather looking for a stand-alone solution, you could for example run the daemon on a *RaspberryPi Zero W*, [put it on a PCB together with the *Nano*](https://tomdalby.com/other/oqtadrive.html), and place this into a *Microdrive* or 3D printed case. The *Pi* would connect to your WiFi and you can control *OqtaDrive* from anywhere in your network.
@@ -16,6 +16,7 @@ Due to the minimal hardware required, *OqtaDrive* is also very cost-efficient. I
 - Supports all *Microdrive* operations on *Spectrum* with *Interface 1* and on *QL*, no modifications or additional software required
 - Can co-exist with actual hardware *Microdrive* units, which can be mapped on demand to any slot in the drive chain or turned off
 - Daemon can run on *Linux*, *MacOS*, and *Windows* (more community testing for the latter two needed!)
+- Control daemon via command line interface and web UI
 - Load & save from/to *MDR* and *MDV* formatted cartridge files
 - For *Spectrum*, *Z80* snapshot files can be directly loaded, no additional software required. Big thanks to Tom Dalby for open-sourcing [Z80onMDR Lite](https://github.com/TomDDG/Z80onMDR_lite)!
 - List virtual drives & contents of cartridges
@@ -127,7 +128,7 @@ After building the adapter, the software needs to be installed. This comprises t
 
 - Flashing the firmware onto the *Arduino Nano* - For this you can use for example the [*Arduino* IDE](https://www.arduino.cc/en/software).
 
-- Copying the `oqtactl` binary - This is a single binary, which takes care of everything that needs to be done on the daemon host side. It can also be used to control the daemon, on the same host or over the network. In the *release* section of this project, there are binaries for *Linux*, *MacOS* and *Windows*, available for different architectures. Download, extract, and copy the appropriate binary onto the daemon host and any other system from which you want to use it. 
+- Copying the `oqtactl` binary - This is a single binary, which takes care of everything that needs to be done on the daemon host side. It can also be used to control the daemon, on the same host or over the network. In the *release* section of this project, there are binaries for *Linux*, *MacOS* and *Windows*, available for different architectures. Download, extract, and copy the appropriate binary onto the daemon host and any other system from which you want to use it. If you want to enable the *OqtaDrive* web UI, you also need to extract the content of the `ui.zip` archive from the *release* section, and place it alongside the `oqtactl` binary on the daemon host.
 
 ### Installation Script
 In the `hack` folder, there's a `Makefile` that can be used to perform all of above steps, so you don't even have to install the *Arduino* IDE. Currently, this only supports installation on *Linux*. For more details, have a look at the [install guide](doc/install.md).
@@ -152,7 +153,7 @@ Daemon logging behavior can be changed with these environment variables:
 | `LOG_METHODS` | include method names in log messages | `true`, `false` |
 
 ### Control Actions
-The daemon also serves an HTTP control API on port `8888` (can be changed with `--address` option). This is the integration point for any tooling that may evolve in the future, e.g. a browser-based GUI. It is also used by the provided command line actions. The most important ones are:
+The daemon also serves an HTTP control API on port `8888` (can be changed with `--address` option). This is the integration point for any tooling, such as the provided command line actions. The most important ones are:
 
 - load cartridge: `oqtactl load -d {drive} -i {file}`
 - save cartridge: `oqtactl save -d {drive} -o {file}`
@@ -160,6 +161,9 @@ The daemon also serves an HTTP control API on port `8888` (can be changed with `
 - list cartridge content: `oqtactl ls -d {drive}` or `oqtactl ls -i {file}`
 
 `load` & `save` currently support `.mdr` and `.mdv` formatted files. I've only tested loading a very limited number of cartridge files available out there though, so there may be surprises. For the *Spectrum* `load` can also load *Z80* snapshot files into the daemon, converting them to *MDR* on the fly.
+
+### Web UI
+When the `ui` folder containing the web UI assets was deployed on the daemon host alongside the `oqtactl` binary, the daemon will serve the web UI on `http://{daemon host}:8888/` (port can be changed with `--address` option).
 
 ## Building
 On *Linux* you can use the `Makefile` to build `oqtactl`, the *OqtaDrive* binary. Note that for consistency, building is done inside a *Golang* build container, so you will need *Docker* to build, but no other dependencies. Just run `make build`. You can also cross-compile for *MacOS* and *Windows*. Run `CROSS=y make build` in that case. If you want to build on *MacOS* or *Windows* directly, you would have to install the *Golang* SDK there and run the proper `go build` command manually. 

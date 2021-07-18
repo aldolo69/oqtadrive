@@ -1,0 +1,181 @@
+<!doctype html>
+
+<html lang="en" class="h-100">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="OqtaDrive Web UI">
+        <meta name="author" content="Alexander Vollschwitz">
+
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+
+        <title>OqtaDrive</title>
+
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <link href="css/bootstrap-icons.css" rel="stylesheet">
+
+        <meta name="theme-color" content="#804d00">
+
+        <style>
+            .bd-placeholder-img {
+                font-size: 1.125rem;
+                text-anchor: middle;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                user-select: none;
+            }
+
+            @media (min-width: 640px) {
+                .bd-placeholder-img-lg {
+                    font-size: 3.5rem;
+                }
+            }
+        </style>
+
+        <link href="cover.css" rel="stylesheet">
+    </head>
+
+    <body class="d-flex h-100 text-center text-white bg-dark">
+
+        <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+
+            <header class="mb-auto">
+                <div>
+                    <h3 class="float-md-start mb-0"><i>OqtaDrive</i></h3>
+                    <nav class="nav nav-masthead justify-content-center float-md-end"
+                         id="tabs" role="tablist">
+                        <a class="nav-link active" id="drives-tab" href="#drives"
+                           data-bs-toggle="tab" data-bs-target="#drives" role="tab"
+                           aria-controls="drives" aria-selected="true">Drives</a>
+                        <a class="nav-link" id="files-tab" href="#files"
+                           data-bs-toggle="tab" data-bs-target="#files" role="tab"
+                           aria-controls="files" aria-selected="false">Files</a>
+                        <a class="nav-link" id="about-tab" href="#about"
+                           data-bs-toggle="tab" data-bs-target="#about" role="tab"
+                           aria-controls="about" aria-selected="false">About</a>
+                    </nav>
+                </div>
+            </header>
+
+            <main class="px-3">
+
+                <div class="tab-content">
+
+                    <div class="tab-pane fade show active" id="drives" role="tabpanel"
+                         aria-labelledby="drives-tab">
+
+                        <div id="driveList" class="container features">
+                            <div id="driveHr" class="row text-white-50 mb-1">
+                                <div class="col-2">
+                                    <b>Drive</b>
+                                </div>
+                                <div class="col-7">
+                                    <b>Cartridge</b>
+                                </div>
+                                <div class="col-3">
+                                    <b>Status</b>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="container features">
+                            <div class="row mt-1">
+                                <div class="col-2"></div>
+                                <div class="col-7" align="right">
+                                    <span id="clientLabel"></span>
+                                    &nbsp;
+                                    <button type="button" id="btClient" class="btn btn-outline-light">
+                                        <i id="clientIcon"></i>
+                                    </button>
+                                </div>
+                                <div class="col-3"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="tab-pane fade mt-2" id="files" role="tabpanel"
+                         aria-labelledby="files-tab">
+
+                        <pre id="fileList" align="left">Click on a cartridge name
+to open its file list.</pre>
+
+                        <div class="container features mt-1 mb-2">
+                            <div class="row">
+                                <div class="col-4"></div>
+                                <div class="col-2">
+                                    <button type="button" id="btSave" class="btn btn-outline-light">
+                                        <i class="bi-save"></i>
+                                    </button>
+                                </div>
+                                <div class="col-2">
+                                    <button type="button" id="btUnload" class="btn btn-outline-light">
+                                        <i class="bi-eject"></i>
+                                    </button>
+                                </div>
+                                <div class="col-4"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="tab-pane fade mt-2" id="about" role="tabpanel"
+                         aria-labelledby="about-tab">
+                        <p align="left"><i>OqtaDrive</i> - Sinclair Microdrive emulator,
+                        Copyright (c) 2021, Alexander Vollschwitz<p>
+                        <p align="left">This web UI was built with <a href="https://getbootstrap.com/">Bootstrap</a> and <a href="https://icons.getbootstrap.com/">Bootstrap Icons</a>. It is an early
+                        &alpha;-version, and does not yet cover all <i>OqtaDrive</i> APIs. Things may not
+                        behave as you might expect! &#x1F601;</p>
+                        <small>
+                        <p align="left"><i>OqtaDrive</i> is free software: you can redistribute it and/or
+                        modify it under the terms of the GNU General Public License as published by
+                        the Free Software Foundation, either version 3 of the License, or (at your option)
+                        any later version.<p>
+                        <p align="left"><i>OqtaDrive</i> is distributed in the hope that it will be useful,
+                        but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+                        FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+                        details.</p>
+                        <p align="left">For a copy of the GNU General Public License, see
+                        <a href="http://www.gnu.org/licenses">here</a>.</p>
+                        </small>
+                    </div>
+
+                </div>
+
+            </main>
+
+            <footer class="mt-auto text-white-50">
+                <p>
+                    <i class="bi-github" role="img" aria-label="GitHub"></i>
+                    <a href="https://github.com/xelalexv/oqtadrive"
+                       class="text-white">OqtaDrive</a> on GitHub
+                </p>
+            </footer>
+
+        </div>
+
+        <div class="modal fade" id="modal" tabindex="-1" aria-labelledby="modalLabel" 
+             aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content text-white bg-dark">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalLabel">New message</h5>
+                    </div>
+                    <div class="modal-body">Hi!</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">No</button>
+                        <button type="button" class="btn btn-primary">Yes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript" src="js/bootstrap.bundle.min.js"></script>
+        <script type="text/javascript" src="oqta.js"></script>
+
+    </body>
+</html>

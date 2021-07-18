@@ -995,9 +995,9 @@ void daemonSync() {
 
 	while (true) {
 
-		daemonCmd(IF1 ? IF1_HELLO : QL_HELLO);
+		daemonCmd((uint8_t*)(IF1 ? IF1_HELLO : QL_HELLO));
 
-		if (daemonRcvAck(10, 100, DAEMON_HELLO)) {
+		if (daemonRcvAck(10, 100, (uint8_t*)DAEMON_HELLO)) {
 			daemonCmdArgs(CMD_VERSION, PROTOCOL_VERSION, 0, 0, 0);
 			daemonHWGroup();
 			lastPing = millis();
@@ -1059,8 +1059,8 @@ bool daemonPing() {
 	if (millis() - lastPing < PING_INTERVAL) {
 		return false;
 	}
-	daemonCmd(DAEMON_PING);
-	synced = daemonRcvAck(10, 5, DAEMON_PONG);
+	daemonCmd((uint8_t*)DAEMON_PING);
+	synced = daemonRcvAck(10, 5, (uint8_t*)DAEMON_PONG);
 	lastPing = millis();
 	return synced;
 }

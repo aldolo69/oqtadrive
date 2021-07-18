@@ -66,6 +66,21 @@ func (c *Cartridge) fill(cart base.Cartridge) {
 }
 
 //
+func (c *Cartridge) equals(o *Cartridge) bool {
+	if c == o {
+		return true
+	}
+	if c == nil || o == nil {
+		return false
+	}
+	return c.Name == o.Name &&
+		c.Status == o.Status &&
+		c.Formatted == o.Formatted &&
+		c.WriteProtected == o.WriteProtected &&
+		c.Modified == o.Modified
+}
+
+//
 func (c *Cartridge) String() string {
 
 	if c.Status != daemon.StatusIdle {
@@ -94,4 +109,23 @@ func (c *Cartridge) String() string {
 	}
 
 	return fmt.Sprintf("%-16s%c%c%c", name, format, write, mod)
+}
+
+//
+func cartridgeListsEqual(a, b []*Cartridge) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for ix, c := range a {
+		if !c.equals(b[ix]) {
+			return false
+		}
+	}
+	return true
+}
+
+//
+type Change struct {
+	Client string       `json:"client"`
+	Drives []*Cartridge `json:"drives"`
 }

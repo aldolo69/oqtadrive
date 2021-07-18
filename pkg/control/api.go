@@ -56,6 +56,8 @@ type api struct {
 	address string
 	daemon  *daemon.Daemon
 	server  *http.Server
+	//
+	longPollQueue chan chan *Change
 }
 
 //
@@ -64,6 +66,7 @@ func (a *api) Serve() error {
 	router := mux.NewRouter().StrictSlash(true)
 
 	addRoute(router, "status", "GET", "/status", a.status)
+	addRoute(router, "watch", "GET", "/watch", a.watch)
 	addRoute(router, "ls", "GET", "/list", a.list)
 	addRoute(router, "load", "PUT", "/drive/{drive:[1-8]}", a.load)
 	addRoute(router, "unload", "GET", "/drive/{drive:[1-8]}/unload", a.unload)
@@ -75,6 +78,9 @@ func (a *api) Serve() error {
 	addRoute(router, "resync", "PUT", "/resync", a.resync)
 	addRoute(router, "config", "PUT", "/config", a.config)
 
+	router.PathPrefix("/").Handler(
+		requestLogger(http.FileServer(http.Dir("./ui/web/")), "webui"))
+
 	addr := a.address
 	if len(strings.Split(addr, ":")) < 2 {
 		addr = fmt.Sprintf("%s:8888", a.address)
@@ -82,6 +88,10 @@ func (a *api) Serve() error {
 
 	log.Infof("OqtaDrive API starts listening on %s", addr)
 	a.server = &http.Server{Addr: addr, Handler: router}
+
+	a.longPollQueue = make(chan chan *Change)
+	go a.watchDaemon()
+
 	err := a.server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		return err
@@ -94,6 +104,7 @@ func (a *api) Stop() error {
 	if a.server != nil {
 		log.Info("API server stopping...")
 		err := a.server.Shutdown(context.Background())
+		a.server = nil
 		return err
 	}
 	return nil
@@ -146,9 +157,96 @@ func (a *api) status(w http.ResponseWriter, req *http.Request) {
 }
 
 //
+func (a *api) watch(w http.ResponseWriter, req *http.Request) {
+
+	timeout, err := strconv.Atoi(req.URL.Query().Get("timeout"))
+	if err != nil || timeout < 0 || 1800 < timeout {
+		timeout = 600
+	}
+
+	log.Infof("starting watch for %s, timeout %d", req.RemoteAddr, timeout)
+	update := make(chan *Change)
+
+	select {
+	case a.longPollQueue <- update:
+	case <-time.After(time.Duration(timeout) * time.Second):
+		log.Infof("closing watch for %s after timeout", req.RemoteAddr)
+		sendReply([]byte{}, http.StatusRequestTimeout, w)
+		return
+	}
+
+	log.Infof("sending daemon change to %s", req.RemoteAddr)
+	sendJSONReply(<-update, http.StatusOK, w)
+}
+
+//
+func (a *api) watchDaemon() {
+
+	log.Info("start watching for daemon changes")
+
+	var client string
+	var list []*Cartridge
+
+	for a.server != nil {
+
+		time.Sleep(2 * time.Second)
+		change := &Change{}
+
+		l := a.getCartridges()
+		if !cartridgeListsEqual(l, list) {
+			change.Drives = l
+			list = l
+		}
+
+		c := a.daemon.GetClient()
+		if c != client {
+			change.Client = c
+			client = c
+		}
+
+		if change.Drives == nil && change.Client == "" {
+			continue
+		}
+
+		log.Info("daemon changes")
+
+	Loop:
+		for {
+			select {
+			case cl := <-a.longPollQueue:
+				log.Info("notifying long poll client")
+				cl <- change
+			default:
+				log.Info("all long poll clients notified")
+				break Loop
+			}
+		}
+	}
+
+	log.Info("stopped watching for daemon changes")
+}
+
+//
 func (a *api) list(w http.ResponseWriter, req *http.Request) {
 
-	var list []*Cartridge
+	list := a.getCartridges()
+
+	if wantsJSON(req) {
+		sendJSONReply(list, http.StatusOK, w)
+
+	} else {
+		strList := "\nDRIVE CARTRIDGE       STATE"
+		for ix, c := range list {
+			strList += fmt.Sprintf("\n  %d   %s", ix+1, c.String())
+		}
+		sendReply([]byte(strList), http.StatusOK, w)
+	}
+}
+
+//
+func (a *api) getCartridges() []*Cartridge {
+
+	ret := make([]*Cartridge, daemon.DriveCount)
 
 	for drive := 1; drive <= daemon.DriveCount; drive++ {
 
@@ -163,19 +261,10 @@ func (a *api) list(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		list = append(list, c)
+		ret[drive-1] = c
 	}
 
-	if wantsJSON(req) {
-		sendJSONReply(list, http.StatusOK, w)
-
-	} else {
-		strList := "\nDRIVE CARTRIDGE       STATE"
-		for ix, c := range list {
-			strList += fmt.Sprintf("\n  %d   %s", ix+1, c.String())
-		}
-		sendReply([]byte(strList), http.StatusOK, w)
-	}
+	return ret
 }
 
 //

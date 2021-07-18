@@ -31,7 +31,7 @@ BINARIES = $(BUILD_OUTPUT)/bin
 ISOLATED_PKG = $(BUILD_OUTPUT)/pkg
 ISOLATED_CACHE = $(BUILD_OUTPUT)/cache
 
-GO_IMAGE = golang:1.16.5-buster@sha256:be0e3a0f3ffa448b0bcbb9019edca692b8278407a44dc138c60e6f12f0218f87
+GO_IMAGE = golang:1.17.0-buster@sha256:b6fe2cc154c1be5fe9dbd7cf5f23f5f48126946762d5ab547ed9a5d2f7562fa3
 
 ## env
 # You can set the following environment variables when calling make:
@@ -84,7 +84,7 @@ run:
 
 
 .PHONY: build
-build: prep
+build: prep ui
 #	build the binary
 #
 	rm -f $(BINARIES)/oqtactl
@@ -101,6 +101,13 @@ endif
 
 	[[ -L $(BINARIES)/oqtactl ]] || \
 		( cd $(BINARIES); ln -s oqtactl_$(OQTADRIVE_RELEASE)_linux_amd64 oqtactl )
+
+
+.PHONY: ui
+ui: prep
+#	pack the ui artifacts
+#
+	zip -r $(BINARIES)/ui.zip ui
 
 
 .PHONY: prep
