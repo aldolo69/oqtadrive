@@ -30,19 +30,24 @@ func NewResync() *Resync {
 
 	r := &Resync{}
 	r.Runner = *NewRunner(
-		`resync [-a|--address {address}] [-c|--client {if1|ql}]`,
+		`resync [-a|--address {address}] [-c|--client {if1|ql}] [-r|--reset]`,
 		"resync with the adapter",
 		`
 Use the resync command to re-synchronize with the adapter. Optionally, you can force
 whether the adapter should be re-configured for Interface 1 or QL during the resync.
 Note however that if the adapter is forced to a particular client in its configuration,
 then this cannot be changed. Otherwise, if the client is not specified, the adapter
-uses auto-detect during resync.`,
+uses auto-detect during resync.
+
+When setting the reset flag, the daemon will try to reset the adapter by closing and
+opening the serial connection. This will stop any actions currently performed and may
+therefore lead to data loss if a write operation is in progress!`,
 		"", runnerHelpEpilogue, r.Run)
 
 	r.AddBaseSettings()
 	r.AddSetting(&r.Client, "client", "c", "", nil,
 		"client type, 'if1' or 'ql'", false)
+	r.AddSetting(&r.Reset, "reset", "r", "", false, "reset adapter", false)
 
 	return r
 }
@@ -52,6 +57,7 @@ type Resync struct {
 	Runner
 	//
 	Client string
+	Reset  bool
 }
 
 //
@@ -60,7 +66,7 @@ func (r *Resync) Run() error {
 	r.ParseSettings()
 
 	resp, err := r.apiCall("PUT",
-		fmt.Sprintf("/resync?client=%s", r.Client), false, nil)
+		fmt.Sprintf("/resync?client=%s&reset=%v", r.Client, r.Reset), false, nil)
 
 	if err != nil {
 		return err

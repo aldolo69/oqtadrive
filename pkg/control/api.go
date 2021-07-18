@@ -411,11 +411,17 @@ func (a *api) resync(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if handleError(a.daemon.Resync(cl), http.StatusUnprocessableEntity, w) {
+	reset := isFlagSet(req, "reset")
+	if handleError(
+		a.daemon.Resync(cl, reset), http.StatusUnprocessableEntity, w) {
 		return
 	}
 
-	sendReply([]byte("resyncing with adapter"), http.StatusOK, w)
+	msg := "re-syncing with adapter"
+	if reset {
+		msg = "resetting adapter"
+	}
+	sendReply([]byte(msg), http.StatusOK, w)
 }
 
 //

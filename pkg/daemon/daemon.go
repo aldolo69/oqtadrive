@@ -147,7 +147,7 @@ func (d *Daemon) listen() error {
 					d.conduit.client != d.forceClient {
 					log.WithField("client", d.forceClient).Info(
 						"resyncing with adapter to force client type")
-					go d.Resync(d.forceClient)
+					go d.Resync(d.forceClient, false)
 				}
 			}
 		}
@@ -373,7 +373,7 @@ func (d *Daemon) MapHardwareDrives(start, end int) error {
 }
 
 //
-func (d *Daemon) Resync(cl client.Client) error {
+func (d *Daemon) Resync(cl client.Client, reset bool) error {
 
 	if !d.synced {
 		return fmt.Errorf("not connected to adapter")
@@ -392,6 +392,16 @@ func (d *Daemon) Resync(cl client.Client) error {
 		p |= MaskIF1
 	case client.QL:
 		p |= MaskQL
+	}
+
+	if reset {
+		d.synced = false
+		if err := d.conduit.close(); err != nil {
+			return err
+		}
+		if p == 0 {
+			return nil
+		}
 	}
 
 	return d.queueControl(func() error {
