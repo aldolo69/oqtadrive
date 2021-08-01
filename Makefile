@@ -104,7 +104,7 @@ endif
 
 
 .PHONY: prep
-prep:
+prep: #
 	mkdir -p $(BINARIES) $(ISOLATED_PKG) $(ISOLATED_CACHE)
 
 

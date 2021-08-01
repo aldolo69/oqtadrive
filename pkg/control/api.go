@@ -73,6 +73,7 @@ func (a *api) Serve() error {
 	addRoute(router, "map", "PUT", "/map", a.setDriveMap)
 	addRoute(router, "drivels", "GET", "/drive/{drive:[1-8]}/list", a.driveList)
 	addRoute(router, "resync", "PUT", "/resync", a.resync)
+	addRoute(router, "config", "PUT", "/config", a.config)
 
 	addr := a.address
 	if len(strings.Split(addr, ":")) < 2 {
@@ -365,20 +366,12 @@ func (a *api) getDriveMap(w http.ResponseWriter, req *http.Request) {
 //
 func (a *api) setDriveMap(w http.ResponseWriter, req *http.Request) {
 
-	arg, err := getArg(req, "start")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-	start, err := strconv.Atoi(arg)
+	start, err := getIntArg(req, "start")
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return
 	}
 
-	arg, err = getArg(req, "end")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-	end, err := strconv.Atoi(arg)
+	end, err := getIntArg(req, "end")
 	if handleError(err, http.StatusUnprocessableEntity, w) {
 		return
 	}
@@ -425,6 +418,33 @@ func (a *api) resync(w http.ResponseWriter, req *http.Request) {
 }
 
 //
+func (a *api) config(w http.ResponseWriter, req *http.Request) {
+
+	item, err := getArg(req, "item")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	arg1, err := getIntArg(req, "arg1")
+	if handleError(err, http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	arg2, err := getIntArg(req, "arg2")
+	if err != nil {
+		arg2 = 0
+	}
+
+	if handleError(
+		a.daemon.Configure(item, byte(arg1), byte(arg2)),
+		http.StatusUnprocessableEntity, w) {
+		return
+	}
+
+	sendReply([]byte("configuring"), http.StatusOK, w)
+}
+
+//
 func getDrive(w http.ResponseWriter, req *http.Request) int {
 	vars := mux.Vars(req)
 	drive, err := strconv.Atoi(vars["drive"])
@@ -460,6 +480,19 @@ func getArg(req *http.Request, arg string) (string, error) {
 		return url.QueryUnescape(ret)
 	}
 	return ret, nil
+}
+
+//
+func getIntArg(req *http.Request, arg string) (int, error) {
+	if val, err := getArg(req, arg); err != nil {
+		return -1, err
+	} else {
+		if ret, err := strconv.Atoi(val); err != nil {
+			return -1, err
+		} else {
+			return ret, nil
+		}
+	}
 }
 
 //

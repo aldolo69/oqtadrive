@@ -413,6 +413,32 @@ func (d *Daemon) Resync(cl client.Client, reset bool) error {
 }
 
 //
+func (d *Daemon) Configure(item string, arg1, arg2 byte) error {
+
+	var code byte
+
+	switch item {
+
+	case CmdConfigItemRumble:
+		if arg1 < CmdConfigRumbleMin || arg1 > CmdConfigRumbleMax {
+			return fmt.Errorf("illegal rumble level %d (use %d through %d",
+				arg1, CmdConfigRumbleMin, CmdConfigRumbleMax)
+		}
+		code = CmdConfigRumble
+
+	default:
+		return fmt.Errorf("illegal config item: %s", item)
+	}
+
+	return d.queueControl(func() error {
+		if d.synced {
+			return d.conduit.send([]byte{CmdConfig, code, arg1, arg2})
+		}
+		return fmt.Errorf("not synced with adapter")
+	})
+}
+
+//
 func (d *Daemon) queueControl(f func() error) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

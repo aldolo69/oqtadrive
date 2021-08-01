@@ -33,7 +33,7 @@ var OqtaDriveVersion string
 //
 func synopsis() {
 	fmt.Print(`
-synopsis: oqtactl {serve|load|unload|save|ls|dump|resync|version} ...
+synopsis: oqtactl {serve|load|unload|save|ls|dump|resync|config|version} ...
 
 run 'oqtactl {action} -h|--help' to see detailed info
 
@@ -85,6 +85,9 @@ func main() {
 
 	case "resync":
 		run.DieOnError(run.NewResync().Execute(args))
+
+	case "config":
+		run.DieOnError(run.NewConfig().Execute(args))
 
 	case "version":
 		version()

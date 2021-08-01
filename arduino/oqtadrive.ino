@@ -48,6 +48,9 @@
 // waiting to sync with the daemon (LEDs alternate)
 #define LED_SYNC_WAIT true
 
+// rumble strength; this is a PWM setting (0-255), set to 0 for off
+#define RUMBLE_LEVEL 35
+
 /*
     Automatic offset check only works for QL. If you're using OqtaDrive with an
     actual Microdrive between IF1 and the adapter, you can set a fixed offset
@@ -112,6 +115,7 @@ const int PIN_ERASE      = 5; // LOW active
 const int PIN_READ_WRITE = 3; // READ is HIGH; interrupt
 const int PIN_WR_PROTECT = 6; // LOW active
 
+const int PIN_RUMBLE     = 10;
 const int PIN_LED_WRITE  = 11;
 const int PIN_LED_READ   = 12;
 
@@ -134,11 +138,12 @@ const uint8_t MASK_BOTH_TRACKS = MASK_TRACK_1 | MASK_TRACK_2;
 const uint8_t MASK_LED_WRITE  = B00001000;
 const uint8_t MASK_LED_READ   = B00010000;
 
-// --- LED behavior -----------------------------------------------------------
+// --- LED behavior & rumble --------------------------------------------------
 const bool ACTIVE = true;
 const bool IDLE   = false;
 
-uint8_t blinkCount = 0;
+uint8_t blinkCount  = 0;
+uint8_t rumbleLevel = RUMBLE_LEVEL;
 
 // --- tape format ------------------------------------------------------------
 const int PREAMBLE_LENGTH   = 12;
@@ -153,10 +158,12 @@ uint16_t headerLengthMux;
 uint16_t recordLengthMux;
 uint16_t sectorLengthMux;
 
-// --- timer pre-loads, based on a 256 pre-scaler, 1 tick is 16us -------------
-const int TIMER_COMMS          = 65536 - 625;  //   10 msec
-const int TIMER_HEADER_GAP_IF1 = 65536 - 234;  // 3.75 msec
-const int TIMER_HEADER_GAP_QL  = 65536 - 225;  // 3.60 msec
+// --- timer pre-loads --------------------------------------------------------
+// values lower than 256 use a 256 pre-scaler (1 tick is 16us), values 256 and
+// above use a 1024 pre-scaler (1 tick is 64us)
+const int TIMER_COMMS          = 512 - 157; //   10 msec
+const int TIMER_HEADER_GAP_IF1 = 256 - 234; // 3.75 msec
+const int TIMER_HEADER_GAP_QL  = 256 - 225; // 3.60 msec
 
 // --- drive select -----------------------------------------------------------
 volatile uint8_t commsRegister = 0;
@@ -217,6 +224,9 @@ const char CMD_VERIFY  = 'y';
 const char CMD_MAP     = 'm';
 const char CMD_DEBUG   = 'd';
 const char CMD_RESYNC  = 'r';
+const char CMD_CONFIG  = 'c';
+
+const char CMD_CONFIG_RUMBLE  = 'r';
 
 const uint8_t  CMD_LENGTH = 4;
 const uint16_t PAYLOAD_LENGTH = BUF_LENGTH - CMD_LENGTH;
@@ -247,7 +257,8 @@ void setup() {
 	pinMode(PIN_COMMS_OUT, OUTPUT);
 	digitalWrite(PIN_COMMS_OUT, LOW);
 
-	// LEDs
+	// rumble & LEDs
+	pinMode(PIN_RUMBLE, OUTPUT);
 	pinMode(PIN_LED_WRITE, OUTPUT);
 	pinMode(PIN_LED_READ, OUTPUT);
 	ledRead(IDLE);
@@ -264,6 +275,18 @@ void setup() {
 	// set up interrupts
 	attachInterrupt(digitalPinToInterrupt(PIN_COMMS_CLK), commsClk, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(PIN_READ_WRITE), writeReq, FALLING);
+
+	rumbleGreet();
+}
+
+//
+void remoteConfig(uint8_t item, uint8_t arg1, uint8_t arg2) {
+	switch (item) {
+		case CMD_CONFIG_RUMBLE:
+			rumbleLevel = arg1;
+			rumbleGreet();
+			break;
+	}
 }
 
 //
@@ -510,6 +533,7 @@ void driveOff() {
 	spinning = false;
 	recording = false;
 	headerGap = false;
+	rumble(false);
 }
 
 //
@@ -520,6 +544,7 @@ void driveOn() {
 	driveState = DRIVE_STATE_UNKNOWN;
 	recording = false;
 	spinning = true;
+	rumble(true);
 }
 
 // Active level of COMMS_CLK is LOW for Interface 1, HIGH for QL.
@@ -995,20 +1020,29 @@ void daemonSync() {
 //
 void daemonCheckControl() {
 
+	uint8_t arg1, arg2, arg3;
+
 	while (daemonRcvCmd(5, 2)) {
+
+		arg1 = buffer[CMD_LENGTH + 1];
+		arg2 = buffer[CMD_LENGTH + 2];
+		arg3 = buffer[CMD_LENGTH + 3];
 
 		switch (buffer[CMD_LENGTH]) {
 
 			case CMD_MAP:
 				if (!HW_GROUP_LOCK) {
-					setHWGroup(buffer[CMD_LENGTH + 1], buffer[CMD_LENGTH + 2]);
+					setHWGroup(arg1, arg2);
 				}
 				daemonHWGroup();
 				break;
 
+			case CMD_CONFIG:
+				remoteConfig(arg1, arg2, arg3);
+				break;
+
 			case CMD_RESYNC:
-				uint8_t p = buffer[CMD_LENGTH + 1];
-				detectInterface((p & MASK_IF1) != 0, (p & MASK_QL) != 0);
+				detectInterface((arg1 & MASK_IF1) != 0, (arg1 & MASK_QL) != 0);
 				synced = false;
 				return;
 		}
@@ -1120,29 +1154,37 @@ void stopTimer() {
 }
 
 bool timerEnabled() {
-	return TIMSK1 & (1<<TOIE1);
+	return TIMSK2 & (1<<TOIE2);
 }
 
 void enableTimer(bool on, int preload, TimerHandler h) {
+
 	if (timerEnabled() == on) {
 		return;
 	}
+
 	noInterrupts();
 	timerHandler = h;
+
 	if (on) {
-		TCCR1A = 0;
-		TCCR1B = 0;
-		TIFR1 |= _BV(TOV1);   // clear the overflow interrupt flag
-		TCNT1 = preload;
-		TCCR1B |= (1<<CS12);  // 256 pre-scaler
-		TIMSK1 |= (1<<TOIE1); // enable timer overflow interrupt
+		TCCR2A = 0;
+		TCCR2B = 0;
+		TIFR2 |= _BV(TOV2); // clear the overflow interrupt flag
+		TCCR2B |= (1<<CS22) + (1<<CS21); // 256 pre-scaler
+		if (preload < 256) { // fast
+			TCNT2 = preload;
+		} else { // slow
+			TCNT2 = preload - 256;
+			TCCR2B |= (1<<CS20); // extend pre-scaler to 1024
+		}
+		TIMSK2 |= (1<<TOIE2); // enable timer overflow interrupt
 	} else {
-		TIMSK1 &= (0<<TOIE1);
+		TIMSK2 &= (0<<TOIE2);
 	}
 	interrupts();
 }
 
-ISR(TIMER1_OVF_vect) {
+ISR(TIMER2_OVF_vect) {
 	TimerHandler h = timerHandler;
 	stopTimer();
 	if (h != NULL) {
@@ -1182,4 +1224,21 @@ void ledOff(uint8_t led_mask) {
 
 void ledFlip(uint8_t led_mask) {
 	PORTB ^= led_mask;
+}
+
+// ----------------------------------------------------------------- RUMBLE ---
+
+void rumbleGreet() {
+	if (rumbleLevel > 0) {
+		rumble(true);
+		delay(1500);
+		rumble(false);
+	}
+}
+
+void rumble(bool on) {
+	if (on && (rumbleLevel == 0)) {
+		return;
+	}
+	analogWrite(PIN_RUMBLE, on ? rumbleLevel : 0);
 }

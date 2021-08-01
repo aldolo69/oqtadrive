@@ -40,6 +40,12 @@ const CmdTimeEnd = 'q'   // stop stop watch
 const CmdMap = 'm'       // h/w drive mapping (receive from IF1/QL)
 const CmdDebug = 'd'     // debug message (receive from IF1/QL)
 const CmdResync = 'r'    // resync with adapter (send to IF1/QL)
+const CmdConfig = 'c'    // remote config of adapter (send to IF1/QL)
+
+const CmdConfigItemRumble = "rumble" // rumble strength config item
+const CmdConfigRumble = 'r'          // rumble strength item code
+const CmdConfigRumbleMin = 0         // minimum rumble strength
+const CmdConfigRumbleMax = 255       // maximum rumble strength
 
 const MaskIF1 = 1
 const MaskQL = 2
