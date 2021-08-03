@@ -15,6 +15,7 @@
 // oqtadrive.ino will be done.
 #define LED_RW_IDLE_ON    false
 #define LED_SYNC_WAIT     true
+#define RUMBLE_LEVEL      35
 #define DRIVE_OFFSET_IF1  0
 #define DRIVE_OFFSET_QL   0
 #define HW_GROUP_START    7

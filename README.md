@@ -3,10 +3,12 @@
 #### *Sinclair Microdrive* emulator for *Spectrum* & *QL*
 
 ## TL;DR
-*OqtaDrive* emulates a bank of up to 8 *Microdrives* for use with a *Sinclair Spectrum* or *QL* machine. It's built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via serial connection to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes an HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives.
+*OqtaDrive* emulates a bank of up to 8 *Microdrives* for use with a *Sinclair Spectrum* (with *Interface 1*) or *QL* machine. The goal is to functionally create a *faithful* reproduction of the original. That is, on the *Spectrum*/*QL* side, operating the emulated *Microdrives* should feel exactly the same as using the real thing.
+
+*OqtaDrive* is built around an *Arduino Nano* that connects via its GPIO ports to the *Microdrive* interface and via serial connection to a daemon running on a host machine. This daemon host could be anything, ranging from your PC to a small embedded board such as a *RaspberryPi Zero*, as long as it can run a supported OS (*Linux*, *MacOS*, *Windows*). The same *Nano* can be used with both *Spectrum* and *QL*, without any reconfiguration. While the *Nano* is essentially a low-level protocol converter, the daemon takes care of storing and managing the *cartridges*. It additionally exposes an HTTP API endpoint. A few shell commands are provided that use this API and let you control the daemon, e.g. load and save cartridges into/from the virtual drives. A web UI is currently being developed.
 
 ## What Can I Do With This?
-*OqtaDrive*'s architecture makes it very flexible, so many setups are possible. The simplest one would be just the *Nano* that connects your *Interface 1* or *QL* with your PC, and you manage everything from there. This configuration also [fits nicely into the case of an *Interface 1*](https://github.com/xelalexv/oqtadrive/discussions/15). If you're rather looking for a stand-alone solution, that can be done as well. You could for example run the daemon on a *RaspberryPi Zero W*, [put it on a PCB together with the *Nano*](https://tomdalby.com/other/oqtadrive.html), and place this into a *Microdrive* case. The *Pi* would connect to your WiFi and you can control *OqtaDrive* from anywhere in your network.
+*OqtaDrive*'s architecture makes it very flexible, so many setups are possible. The simplest one would be just the *Nano* that connects your *Interface 1* or *QL* with your PC, and you manage everything from there. This configuration also [fits nicely into the case of an *Interface 1*](https://github.com/xelalexv/oqtadrive/discussions/15). If you're rather looking for a stand-alone solution, you could for example run the daemon on a *RaspberryPi Zero W*, [put it on a PCB together with the *Nano*](https://tomdalby.com/other/oqtadrive.html), and place this into a *Microdrive* or 3D printed case. The *Pi* would connect to your WiFi and you can control *OqtaDrive* from anywhere in your network.
 
 Due to the minimal hardware required, *OqtaDrive* is also very cost-efficient. In the simplest setup, you only need an *Arduino Nano* and a few resistors and diodes. Additionally, if you own a *Spectrum* and a *QL*, you can use it with both, no need to have dedicated adapters. But above all, there's the fun involved in building this! If you've created your very own setup, then just head over to the discussion section and tell us about it!
 
@@ -85,7 +87,7 @@ This table shows the respective pin-outs (A = component side, B = solder side):
 | 8B  | GND                 | GND               |
 
 ### Configuration
-The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the top of `oqtadrive.ino`. There are a few more settings that can be changed.
+The adapter recognizes what it's plugged in to, i.e. *Interface 1* or *QL*. But it's also possible to force a particular machine. Have a look at the config section at the top of `oqtadrive.ino`. There are a few more settings that can be changed. If you need to maintain several configs for various adapters, you can alternatively place your settings in separate header files. The details for this are also explained in the config section. 
 
 *Hint*: After turning on the *Spectrum*, the adapter sometimes erroneously detects the *Interface 1* as a *QL*. In that case, run `CAT 1` on the *Spectrum* and reset the adapter afterwards. That should fix the problem.
 
@@ -120,8 +122,18 @@ Cons:
 ### Using a Different *Arduino* Board
 I haven't tried this out on anything other than a *Nano* (or compatible) board. It may work on other *Arduino* boards, but only if they use the same micro-controller running at the same clock speed. There are timing-sensitive sections in the code that would otherwise require tweaking. Also, stick to the GPIO pin assignments, the code relies on this.
 
+## Installing
+After building the adapter, the software needs to be installed. This comprises two separate tasks:
+
+- Flashing the firmware onto the *Arduino Nano* - For this you can use for example the [*Arduino* IDE](https://www.arduino.cc/en/software).
+
+- Copying the `oqtactl` binary - This is a single binary, which takes care of everything that needs to be done on the daemon host side. It can also be used to control the daemon, on the same host or over the network. In the *release* section of this project, there are binaries for *Linux*, *MacOS* and *Windows*, available for different architectures. Download, extract, and copy the appropriate binary onto the daemon host and any other system from which you want to use it. 
+
+### Installation Script
+In the `hack` folder, there's a `Makefile` that can be used to perform all of above steps, so you don't even have to install the *Arduino* IDE. Currently, this only supports installation on *Linux*. For more details, have a look at the [install guide](doc/install.md).
+
 ## Running
-There's a single binary `oqtactl`, that takes care of everything that needs to be done on the PC side. This can run the daemon as well as several control actions. Just run `oqtactl -h` to get a list of the available actions, and `oqtactl {action} -h` for finding out more about a particular action. There are cross-compiled binaries for *MacOS* and *Windows* in the *release* section of this project for every release.
+The `oqtactl` binary can run the daemon as well as several control actions. Just run `oqtactl -h` to get a list of the available actions, and `oqtactl {action} -h` for finding out more about a particular action.
 
 ### Daemon
 Start the daemon with `oqtactl serve -d {serial device}`. It will look for the adapter at the specified serial port, and keep retrying if it's not yet present. You can also dis- and re-connect the adapter. The daemon should re-sync after a few seconds.
