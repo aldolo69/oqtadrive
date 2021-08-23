@@ -22,7 +22,7 @@
 SHELL = /bin/bash
 
 REPO = oqtadrive
-OQTADRIVE_RELEASE = 0.1.5-wip
+OQTADRIVE_RELEASE = 0.2.0
 OQTADRIVE_VERSION := $(shell git describe --always --tag --dirty)
 
 ROOT = $(shell pwd)
@@ -97,7 +97,7 @@ ifneq ($(CROSS),)
 	$(call utils, build_binary oqtactl darwin arm64)
 	$(call utils, build_binary oqtactl windows amd64)
 endif
-	cd $(BINARIES); sha256sum oqtactl_*.zip > checksums.txt
+	cd $(BINARIES); sha256sum oqtactl_*.zip ui.zip > checksums.txt
 
 	[[ -L $(BINARIES)/oqtactl ]] || \
 		( cd $(BINARIES); ln -s oqtactl_$(OQTADRIVE_RELEASE)_linux_amd64 oqtactl )

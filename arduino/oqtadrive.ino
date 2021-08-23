@@ -42,7 +42,7 @@
 #ifndef OQTADRIVE_CONFIG
 
 //  Set here whether read & write LEDs should be on when idling.
-#define LED_RW_IDLE_ON false
+#define LED_RW_IDLE_ON true
 
 // Set here whether the read & write LEDs should indicate that the adapter is
 // waiting to sync with the daemon (LEDs alternate)

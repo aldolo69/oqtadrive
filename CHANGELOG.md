@@ -1,5 +1,22 @@
 # Change Log
 
+## 0.2.0
+This release requires re-flashing the adapter. Protocol version remains at `3`.
+
+### Overall
+- added installer (for *Linux*)
+- bug fixes
+- documentation updates
+
+### Adapter
+- support for including config files in `oqtadrive.ino`
+- support for connecting a *rumble motor* on *Arduino* pin `D10` (see notes in `README.md`)
+
+### Daemon / `oqtactl`
+- added initial version of web UI
+- added `--reset` flag to `resync` command
+- switched to *Go* 1.17
+
 ## 0.1.4
 This release requires re-flashing the adapter. Protocol version is now at `3`.
 
