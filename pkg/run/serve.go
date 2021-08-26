@@ -39,7 +39,8 @@ func NewServe() *Serve {
 
 	s := &Serve{}
 	s.Runner = *NewRunner(
-		"serve -d|--device {device} [-a|--address {address}]  [-c|--client {if1|ql}]",
+		`serve -d|--device {device} [-a|--address {address}]  [-c|--client {if1|ql}]
+      [-r|--repo {repo base folder}]`,
 		"daemon & API server command",
 		`Use the serve command for running the adapter daemon and API server. Optionally, you
 can specify whether the adapter should be configured for Interface 1 or QL after
@@ -59,6 +60,9 @@ in its configuration, then this cannot be changed.`,
 		"serial port device for adapter", true)
 	s.AddSetting(&s.Client, "client", "c", "", nil,
 		"client type, 'if1' or 'ql'", false)
+	s.AddSetting(&s.Repository, "repo", "r", "", nil,
+		`cartridge repo base folder; when omitted, loading
+cartridges from daemon host's file system is prohibited`, false)
 
 	return s
 }
@@ -68,8 +72,9 @@ type Serve struct {
 	//
 	Runner
 	//
-	Device string
-	Client string
+	Device     string
+	Client     string
+	Repository string
 }
 
 //
@@ -98,7 +103,7 @@ func (s *Serve) Run() error {
 		}
 	}()
 
-	api := control.NewAPIServer(s.Address, d)
+	api := control.NewAPIServer(s.Address, s.Repository, d)
 	go func() {
 		defer wg.Done()
 		if err := api.Serve(); err != nil {

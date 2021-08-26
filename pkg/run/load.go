@@ -23,11 +23,14 @@ package run
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/xelalexv/oqtadrive/pkg/repo"
 )
 
 //
@@ -80,26 +83,31 @@ func (l *Load) Run() error {
 		return err
 	}
 
-	f, err := os.Open(l.File)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var name string
-
-	if l.Name != "" {
-		name = l.Name
-	} else {
+	var name = l.Name
+	if name == "" {
 		_, name = filepath.Split(l.File)
 		name = strings.TrimSuffix(strings.ToUpper(name), ".Z80")
 	}
 
-	resp, err := l.apiCall("PUT",
-		fmt.Sprintf("/drive/%d?type=%s&force=%v&repair=%v&name=%s",
-			l.Drive, getExtension(l.File), l.Force, l.Repair,
-			url.QueryEscape(name)),
-		false, bufio.NewReader(f))
+	path := fmt.Sprintf("/drive/%d?type=%s&force=%v&repair=%v&name=%s",
+		l.Drive, getExtension(l.File), l.Force, l.Repair, url.QueryEscape(name))
+
+	var in io.Reader
+
+	if repo.IsReference(l.File) {
+		path += fmt.Sprintf("&ref=true")
+		in = strings.NewReader(l.File)
+
+	} else {
+		f, err := os.Open(l.File)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		in = bufio.NewReader(f)
+	}
+
+	resp, err := l.apiCall("PUT", path, false, in)
 	if err != nil {
 		return err
 	}

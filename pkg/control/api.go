@@ -38,6 +38,7 @@ import (
 	"github.com/xelalexv/oqtadrive/pkg/daemon"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/format"
+	"github.com/xelalexv/oqtadrive/pkg/repo"
 )
 
 //
@@ -47,15 +48,16 @@ type APIServer interface {
 }
 
 //
-func NewAPIServer(addr string, d *daemon.Daemon) APIServer {
-	return &api{address: addr, daemon: d}
+func NewAPIServer(addr, repo string, d *daemon.Daemon) APIServer {
+	return &api{address: addr, repository: repo, daemon: d}
 }
 
 //
 type api struct {
-	address string
-	daemon  *daemon.Daemon
-	server  *http.Server
+	address    string
+	repository string
+	daemon     *daemon.Daemon
+	server     *http.Server
 	//
 	longPollQueue chan chan *Change
 }
@@ -275,6 +277,24 @@ func (a *api) load(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var in io.Reader
+
+	if ref, err := getRef(req); ref != "" {
+		var inCl io.ReadCloser
+		if err == nil {
+			inCl, err = repo.Resolve(ref, a.repository)
+		}
+		if err != nil {
+			handleError(err, http.StatusNotAcceptable, w)
+			return
+		}
+		in = inCl
+		defer inCl.Close()
+
+	} else {
+		in = io.LimitReader(req.Body, 1048576)
+	}
+
 	reader := getFormat(w, req)
 	if reader == nil {
 		return
@@ -285,8 +305,8 @@ func (a *api) load(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	params := map[string]interface{}{"name": arg}
-	cart, err := reader.Read(io.LimitReader(req.Body, 1048576), true,
-		isFlagSet(req, "repair"), params)
+
+	cart, err := reader.Read(in, true, isFlagSet(req, "repair"), params)
 	if err != nil {
 		handleError(fmt.Errorf("cartridge corrupted: %v", err),
 			http.StatusUnprocessableEntity, w)
@@ -554,6 +574,18 @@ func getFormat(w http.ResponseWriter, req *http.Request) format.ReaderWriter {
 		return nil
 	}
 	return ret
+}
+
+//
+func getRef(req *http.Request) (string, error) {
+	if !isFlagSet(req, "ref") {
+		return "", nil
+	}
+	buf := new(strings.Builder)
+	if _, err := io.Copy(buf, io.LimitReader(req.Body, 1024)); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 //
