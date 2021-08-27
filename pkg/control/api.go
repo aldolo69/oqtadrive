@@ -21,7 +21,6 @@
 package control
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,9 +35,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xelalexv/oqtadrive/pkg/daemon"
-	"github.com/xelalexv/oqtadrive/pkg/microdrive/client"
 	"github.com/xelalexv/oqtadrive/pkg/microdrive/format"
-	"github.com/xelalexv/oqtadrive/pkg/repo"
 )
 
 //
@@ -113,6 +110,30 @@ func (a *api) Stop() error {
 }
 
 //
+func (a *api) getCartridges() []*Cartridge {
+
+	ret := make([]*Cartridge, daemon.DriveCount)
+
+	for drive := 1; drive <= daemon.DriveCount; drive++ {
+
+		c := &Cartridge{Status: a.daemon.GetStatus(drive)}
+
+		if c.Status == daemon.StatusIdle {
+			if cart, ok := a.daemon.GetCartridge(drive); cart != nil {
+				c.fill(cart)
+				cart.Unlock()
+			} else if !ok {
+				c.Status = daemon.StatusBusy
+			}
+		}
+
+		ret[drive-1] = c
+	}
+
+	return ret
+}
+
+//
 func addRoute(r *mux.Router, name, method, pattern string,
 	handler http.HandlerFunc) {
 	r.Methods(method).
@@ -141,416 +162,6 @@ func requestLogger(inner http.Handler, name string) http.Handler {
 			"duration": time.Since(start),
 		}).Debugf("API END   | %s", name)
 	})
-}
-
-//
-func (a *api) status(w http.ResponseWriter, req *http.Request) {
-
-	stat := &Status{Client: a.daemon.GetClient()}
-	for drive := 1; drive <= daemon.DriveCount; drive++ {
-		stat.Add(a.daemon.GetStatus(drive))
-	}
-
-	if wantsJSON(req) {
-		sendJSONReply(stat, http.StatusOK, w)
-	} else {
-		sendReply([]byte(stat.String()), http.StatusOK, w)
-	}
-}
-
-//
-func (a *api) watch(w http.ResponseWriter, req *http.Request) {
-
-	timeout, err := strconv.Atoi(req.URL.Query().Get("timeout"))
-	if err != nil || timeout < 0 || 1800 < timeout {
-		timeout = 600
-	}
-
-	log.Infof("starting watch for %s, timeout %d", req.RemoteAddr, timeout)
-	update := make(chan *Change)
-
-	select {
-	case a.longPollQueue <- update:
-	case <-time.After(time.Duration(timeout) * time.Second):
-		log.Infof("closing watch for %s after timeout", req.RemoteAddr)
-		sendReply([]byte{}, http.StatusRequestTimeout, w)
-		return
-	}
-
-	log.Infof("sending daemon change to %s", req.RemoteAddr)
-	sendJSONReply(<-update, http.StatusOK, w)
-}
-
-//
-func (a *api) watchDaemon() {
-
-	log.Info("start watching for daemon changes")
-
-	var client string
-	var list []*Cartridge
-
-	for a.server != nil {
-
-		time.Sleep(2 * time.Second)
-		change := &Change{}
-
-		l := a.getCartridges()
-		if !cartridgeListsEqual(l, list) {
-			change.Drives = l
-			list = l
-		}
-
-		c := a.daemon.GetClient()
-		if c != client {
-			change.Client = c
-			client = c
-		}
-
-		if change.Drives == nil && change.Client == "" {
-			continue
-		}
-
-		log.Info("daemon changes")
-
-	Loop:
-		for {
-			select {
-			case cl := <-a.longPollQueue:
-				log.Info("notifying long poll client")
-				cl <- change
-			default:
-				log.Info("all long poll clients notified")
-				break Loop
-			}
-		}
-	}
-
-	log.Info("stopped watching for daemon changes")
-}
-
-//
-func (a *api) list(w http.ResponseWriter, req *http.Request) {
-
-	list := a.getCartridges()
-
-	if wantsJSON(req) {
-		sendJSONReply(list, http.StatusOK, w)
-
-	} else {
-		strList := "\nDRIVE CARTRIDGE       STATE"
-		for ix, c := range list {
-			strList += fmt.Sprintf("\n  %d   %s", ix+1, c.String())
-		}
-		sendReply([]byte(strList), http.StatusOK, w)
-	}
-}
-
-//
-func (a *api) getCartridges() []*Cartridge {
-
-	ret := make([]*Cartridge, daemon.DriveCount)
-
-	for drive := 1; drive <= daemon.DriveCount; drive++ {
-
-		c := &Cartridge{Status: a.daemon.GetStatus(drive)}
-
-		if c.Status == daemon.StatusIdle {
-			if cart, ok := a.daemon.GetCartridge(drive); cart != nil {
-				c.fill(cart)
-				cart.Unlock()
-			} else if !ok {
-				c.Status = daemon.StatusBusy
-			}
-		}
-
-		ret[drive-1] = c
-	}
-
-	return ret
-}
-
-//
-func (a *api) load(w http.ResponseWriter, req *http.Request) {
-
-	drive := getDrive(w, req)
-	if drive == -1 {
-		return
-	}
-
-	var in io.Reader
-
-	if ref, err := getRef(req); ref != "" {
-		var inCl io.ReadCloser
-		if err == nil {
-			inCl, err = repo.Resolve(ref, a.repository)
-		}
-		if err != nil {
-			handleError(err, http.StatusNotAcceptable, w)
-			return
-		}
-		in = inCl
-		defer inCl.Close()
-
-	} else {
-		in = io.LimitReader(req.Body, 1048576)
-	}
-
-	reader := getFormat(w, req)
-	if reader == nil {
-		return
-	}
-
-	arg, err := getArg(req, "name")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-	params := map[string]interface{}{"name": arg}
-
-	cart, err := reader.Read(in, true, isFlagSet(req, "repair"), params)
-	if err != nil {
-		handleError(fmt.Errorf("cartridge corrupted: %v", err),
-			http.StatusUnprocessableEntity, w)
-		return
-	}
-	if handleError(req.Body.Close(), http.StatusInternalServerError, w) {
-		return
-	}
-
-	if err := a.daemon.SetCartridge(drive, cart, isFlagSet(req, "force")); err != nil {
-		if strings.Contains(err.Error(), "could not lock") {
-			handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
-		} else if strings.Contains(err.Error(), "is modified") {
-			handleError(fmt.Errorf(
-				"cartridge in drive %d is modified", drive), http.StatusConflict, w)
-		} else {
-			handleError(err, http.StatusInternalServerError, w)
-		}
-
-	} else {
-		sendReply([]byte(
-			fmt.Sprintf("loaded data into drive %d", drive)), http.StatusOK, w)
-	}
-}
-
-//
-func (a *api) unload(w http.ResponseWriter, req *http.Request) {
-
-	drive := getDrive(w, req)
-	if drive == -1 {
-		return
-	}
-
-	if err := a.daemon.UnloadCartridge(drive, isFlagSet(req, "force")); err != nil {
-		if strings.Contains(err.Error(), "could not lock") {
-			handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
-		} else if strings.Contains(err.Error(), "is modified") {
-			handleError(fmt.Errorf(
-				"cartridge in drive %d is modified", drive), http.StatusConflict, w)
-		} else {
-			handleError(err, http.StatusInternalServerError, w)
-		}
-
-	} else {
-		sendReply([]byte(
-			fmt.Sprintf("unloaded drive %d", drive)), http.StatusOK, w)
-	}
-}
-
-//
-func (a *api) save(w http.ResponseWriter, req *http.Request) {
-
-	drive := getDrive(w, req)
-	if drive == -1 {
-		return
-	}
-
-	cart, ok := a.daemon.GetCartridge(drive)
-
-	if !ok {
-		handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
-		return
-	}
-
-	if cart == nil {
-		handleError(fmt.Errorf("no cartridge in drive %d", drive),
-			http.StatusUnprocessableEntity, w)
-		return
-	}
-
-	defer cart.Unlock()
-
-	writer := getFormat(w, req)
-	if writer == nil {
-		return
-	}
-
-	var out bytes.Buffer
-	if handleError(
-		writer.Write(cart, &out, nil), http.StatusInternalServerError, w) {
-		return
-	}
-
-	cart.SetModified(false)
-	w.WriteHeader(http.StatusOK)
-	w.Write(out.Bytes())
-}
-
-//
-func (a *api) dump(w http.ResponseWriter, req *http.Request) {
-	a.driveInfo(w, req, "dump")
-}
-
-//
-func (a *api) driveList(w http.ResponseWriter, req *http.Request) {
-	a.driveInfo(w, req, "ls")
-}
-
-//
-func (a *api) driveInfo(w http.ResponseWriter, req *http.Request, info string) {
-
-	drive := getDrive(w, req)
-	if drive == -1 {
-		return
-	}
-
-	if a.daemon.GetStatus(drive) == daemon.StatusHardware {
-		sendReply([]byte(fmt.Sprintf(
-			"hardware drive mapped to slot %d", drive)),
-			http.StatusOK, w)
-		return
-	}
-
-	cart, ok := a.daemon.GetCartridge(drive)
-
-	if !ok {
-		handleError(fmt.Errorf("drive %d busy", drive), http.StatusLocked, w)
-		return
-	}
-
-	if cart == nil {
-		handleError(fmt.Errorf("no cartridge in drive %d", drive),
-			http.StatusUnprocessableEntity, w)
-		return
-	}
-
-	defer cart.Unlock()
-
-	read, write := io.Pipe()
-
-	go func() {
-		switch info {
-		case "dump":
-			cart.Emit(write)
-		case "ls":
-			cart.List(write)
-		}
-		write.Close()
-	}()
-
-	sendStreamReply(read, http.StatusOK, w)
-}
-
-// TODO: JSON response
-func (a *api) getDriveMap(w http.ResponseWriter, req *http.Request) {
-
-	start, end, locked := a.daemon.GetHardwareDrives()
-	msg := ""
-
-	if start == -1 || end == -1 {
-		msg = "no hardware drives"
-
-	} else {
-		if start == 0 && end == 0 {
-			msg = "hardware drives are off"
-		} else {
-			msg = fmt.Sprintf("hardware drives: start=%d, end=%d", start, end)
-		}
-		if locked {
-			msg += " (locked)"
-		}
-	}
-	sendReply([]byte(msg), http.StatusOK, w)
-}
-
-//
-func (a *api) setDriveMap(w http.ResponseWriter, req *http.Request) {
-
-	start, err := getIntArg(req, "start")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	end, err := getIntArg(req, "end")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	if handleError(a.daemon.MapHardwareDrives(start, end),
-		http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	sendReply([]byte(fmt.Sprintf(
-		"mapped hardware drives: start=%d, end=%d", start, end)),
-		http.StatusOK, w)
-}
-
-//
-func (a *api) resync(w http.ResponseWriter, req *http.Request) {
-
-	arg, err := getArg(req, "client")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	var cl client.Client = client.UNKNOWN
-
-	if arg != "" {
-		if cl = client.GetClient(arg); cl == client.UNKNOWN {
-			handleError(fmt.Errorf("unknown client type: %s", arg),
-				http.StatusUnprocessableEntity, w)
-			return
-		}
-	}
-
-	reset := isFlagSet(req, "reset")
-	if handleError(
-		a.daemon.Resync(cl, reset), http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	msg := "re-syncing with adapter"
-	if reset {
-		msg = "resetting adapter"
-	}
-	sendReply([]byte(msg), http.StatusOK, w)
-}
-
-//
-func (a *api) config(w http.ResponseWriter, req *http.Request) {
-
-	item, err := getArg(req, "item")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	arg1, err := getIntArg(req, "arg1")
-	if handleError(err, http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	arg2, err := getIntArg(req, "arg2")
-	if err != nil {
-		arg2 = 0
-	}
-
-	if handleError(
-		a.daemon.Configure(item, byte(arg1), byte(arg2)),
-		http.StatusUnprocessableEntity, w) {
-		return
-	}
-
-	sendReply([]byte("configuring"), http.StatusOK, w)
 }
 
 //

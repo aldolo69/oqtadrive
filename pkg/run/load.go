@@ -93,8 +93,12 @@ func (l *Load) Run() error {
 		l.Drive, getExtension(l.File), l.Force, l.Repair, url.QueryEscape(name))
 
 	var in io.Reader
+	isRepo, _, err := repo.ParseReference(l.File)
 
-	if repo.IsReference(l.File) {
+	if isRepo {
+		if err != nil {
+			return err
+		}
 		path += fmt.Sprintf("&ref=true")
 		in = strings.NewReader(l.File)
 

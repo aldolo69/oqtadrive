@@ -32,7 +32,65 @@ import (
 )
 
 //
-const PrefixRepoRef = "repo://"
+const RefSchemaRepo = "repo"
+const RefSchemaHttp = "http"
+const RefSchemaHttps = "https"
+
+//
+func Resolve(ref, repo string) (io.ReadCloser, error) {
+
+	log.WithFields(log.Fields{
+		"reference":  ref,
+		"repository": repo,
+	}).Debug("resolving ref")
+
+	ok, parts, err := ParseReference(ref)
+
+	if !ok {
+		return nil, fmt.Errorf("not a reference: %s", ref)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid reference: %v", err)
+	}
+
+	switch parts[0] {
+
+	case RefSchemaRepo:
+		if repo == "" {
+			return nil, fmt.Errorf("cartridge repository is not enbaled")
+		}
+		return newFileSource(filepath.Join(repo, parts[1]))
+
+	case RefSchemaHttp:
+		fallthrough
+	case RefSchemaHttps:
+		return nil, fmt.Errorf("loading by HTTP reference not yet implemented")
+	}
+
+	return nil, fmt.Errorf("invalid reference: %s", ref)
+}
+
+//
+func ParseReference(ref string) (bool, []string, error) {
+
+	parts := strings.SplitN(ref, "://", 2)
+
+	if len(parts) < 2 {
+		return false, nil, nil
+	}
+
+	var err error
+	switch parts[0] {
+	case RefSchemaRepo:
+	case RefSchemaHttp:
+	case RefSchemaHttps:
+	default:
+		err = fmt.Errorf("unsupported reference schema: %s", parts[0])
+	}
+
+	return true, parts, err
+}
 
 //
 func newFileSource(file string) (*fileSource, error) {
@@ -57,27 +115,4 @@ func (fs *fileSource) Read(p []byte) (n int, err error) {
 //
 func (fs *fileSource) Close() error {
 	return fs.file.Close()
-}
-
-//
-func Resolve(ref, repo string) (io.ReadCloser, error) {
-
-	log.WithFields(log.Fields{
-		"reference":  ref,
-		"repository": repo,
-	}).Debug("resolving ref")
-
-	if strings.HasPrefix(ref, PrefixRepoRef) {
-		if repo == "" {
-			return nil, fmt.Errorf("cartridge repository is not enbaled")
-		}
-		return newFileSource(filepath.Join(repo, ref[len(PrefixRepoRef):]))
-	}
-
-	return nil, fmt.Errorf("loading by reference not yet implemented")
-}
-
-//
-func IsReference(r string) bool {
-	return strings.HasPrefix(r, PrefixRepoRef)
 }
